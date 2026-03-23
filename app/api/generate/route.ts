@@ -29,18 +29,15 @@ export async function POST(request: Request) {
     const id = randomUUID().replace(/-/g, "");
     await setProposalPrintData(id, { formData: data, imageDataUrls });
 
-    let baseUrl: string;
-    try {
-      baseUrl = new URL(request.url).origin;
-    } catch {
-      baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
-    }
+    // Use internal HTTP endpoint for server-side Playwright rendering.
+    // This avoids SSL/proxy host mismatches when app is behind Nginx tunnel/domain.
+    const internalBaseUrl = process.env.INTERNAL_RENDER_URL ?? "http://127.0.0.1:3000";
 
     const modelName = (data.model ?? "MAN").trim();
     const vinPart = (data.vin ?? "").trim();
     const displayName = `Комерційна пропозиція ${modelName}${vinPart ? ` ${vinPart}` : ""}.pdf`;
 
-    const printUrl = `${baseUrl.replace(/\/$/, "")}/proposal-print?id=${id}`;
+    const printUrl = `${internalBaseUrl.replace(/\/$/, "")}/proposal-print?id=${id}`;
 
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();

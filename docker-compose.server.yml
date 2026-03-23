@@ -1,0 +1,16 @@
+services:
+  app:
+    container_name: komerciya_mtruck_next
+    image: ghcr.io/makmillerme/komerciya_mtruck_next:latest
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://komerciyamtruck.duckdns.org}
+      INTERNAL_RENDER_URL: ${INTERNAL_RENDER_URL:-http://127.0.0.1:3000}
+    volumes:
+      - ./data/uploads:/app/uploads
+      - ./data/output:/app/output
+      - ./data/proposal-print-temp:/app/.proposal-print-temp

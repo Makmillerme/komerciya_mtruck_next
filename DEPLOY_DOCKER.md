@@ -38,3 +38,10 @@ You can set custom public URL before deploy:
 
 - Windows PowerShell: `$env:NEXT_PUBLIC_APP_URL = "https://your-domain.com"`
 - then run deploy script.
+
+## Alternative: deploy without server build
+
+Use prebuilt image from GitHub Container Registry.
+
+- Compose file: `docker-compose.server.yml`
+- Guide: `SERVER_DEPLOY_GHCR.md`

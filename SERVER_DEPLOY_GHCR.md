@@ -35,6 +35,8 @@ docker compose -f docker-compose.server.yml up -d
 
 ## Notes
 
+- Історія генерацій КП зберігається у файлі `proposal-history.json` у каталозі, змонтованому як `./data/history` → `/app/data` у контейнері. Після першого деплою за потреби створи каталог: `mkdir -p data/history`.
+
 - Image is published by GitHub Actions on every push to `main`.
 - Published image:
   - `ghcr.io/makmillerme/komerciya_mtruck_next:latest`

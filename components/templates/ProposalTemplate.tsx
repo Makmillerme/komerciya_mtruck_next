@@ -9,6 +9,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { FormattedProposalData } from "@/lib/format-proposal-data";
+import { formatRateDisclaimerDate, getRateDisclaimerLines } from "@/lib/rate-disclaimer";
 import { getMainSpecItems, getTechSpecItems } from "@/lib/proposal-specs";
 import { DocumentPreview, DocumentPageWithLabel } from "@/components/ui/document-preview";
 
@@ -128,9 +129,6 @@ export function ProposalTemplate({
                 <Wallet className="w-4 h-4 opacity-90" strokeWidth={2.5} />
                 Вартість та умови
               </h3>
-              {data.show_currency_non_cash && data.currency_non_cash && (
-                <div className="text-[11px] opacity-90 mb-1">Валютна безготівкова вартість (за курсом продажу {data.currency_label})</div>
-              )}
               <div className={`grid gap-3 mt-2 ${data.show_currency_non_cash && data.currency_non_cash ? "grid-cols-4" : "grid-cols-3"}`}>
                 {data.show_currency_non_cash && data.currency_non_cash ? (
                   <div className="bg-white/10 rounded-lg px-4 py-3">
@@ -150,6 +148,13 @@ export function ProposalTemplate({
                   <div className="text-[11px] opacity-90">Вартість з ПДВ (грн)</div>
                   <div className="text-xs font-bold mt-1">{data.price_with_vat || "—"}</div>
                 </div>
+              </div>
+              <div className="text-[10px] opacity-90 mt-3 text-left leading-snug space-y-1.5 px-0.5">
+                {getRateDisclaimerLines(formatRateDisclaimerDate()).map((line, i) => (
+                  <p key={i} className="mb-0 last:mb-0">
+                    {line}
+                  </p>
+                ))}
               </div>
             </section>
             <div

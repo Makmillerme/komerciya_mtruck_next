@@ -1,8 +1,6 @@
 import type { ProposalFormData } from "@/lib/schema";
 
-const STORAGE_KEY = "proposal_history";
-const MAX_ENTRIES = 50;
-const MAX_PHOTOS = 8;
+const HISTORY_API = "/api/proposal-history";
 
 export interface ProposalHistoryEntry {
   id: string;
@@ -12,6 +10,8 @@ export interface ProposalHistoryEntry {
   /** Base64 data URLs для відновлення фото при заповненні з історії (до 8 шт.) */
   photoDataUrls?: string[];
 }
+
+const MAX_PHOTOS = 8;
 
 export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -31,44 +31,46 @@ export function dataUrlToFile(dataUrl: string, filename: string): File {
   return new File([arr], filename, { type: mime });
 }
 
-export function getProposalHistory(): ProposalHistoryEntry[] {
-  if (typeof window === "undefined") return [];
+/** Історія зберігається у файлі `data/proposal-history.json` на сервері (через API). */
+export async function fetchProposalHistory(): Promise<ProposalHistoryEntry[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as ProposalHistoryEntry[];
-    return Array.isArray(parsed) ? parsed : [];
+    const r = await fetch(HISTORY_API, { cache: "no-store" });
+    if (!r.ok) return [];
+    const data = (await r.json()) as unknown;
+    return Array.isArray(data) ? (data as ProposalHistoryEntry[]) : [];
   } catch {
     return [];
   }
 }
 
-export function addToProposalHistory(
+export async function saveProposalHistoryEntry(
   entry: Omit<ProposalHistoryEntry, "id" | "date"> & { photoDataUrls?: string[] }
-): void {
-  if (typeof window === "undefined") return;
-  const list = getProposalHistory();
-  const photoDataUrls = (entry.photoDataUrls ?? []).slice(0, MAX_PHOTOS);
-  const newEntry: ProposalHistoryEntry = {
-    ...entry,
-    photoDataUrls: photoDataUrls.length > 0 ? photoDataUrls : undefined,
-    id: crypto.randomUUID(),
-    date: new Date().toISOString(),
-  };
-  const next = [newEntry, ...list].slice(0, MAX_ENTRIES);
+): Promise<ProposalHistoryEntry | null> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const photoDataUrls = (entry.photoDataUrls ?? []).slice(0, MAX_PHOTOS);
+    const r = await fetch(HISTORY_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        file: entry.file,
+        formData: entry.formData,
+        photoDataUrls: photoDataUrls.length > 0 ? photoDataUrls : undefined,
+      }),
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as ProposalHistoryEntry;
   } catch {
-    // ignore quota or parse errors
+    return null;
   }
 }
 
-export function deleteFromProposalHistory(id: string): void {
-  if (typeof window === "undefined") return;
-  const list = getProposalHistory().filter((e) => e.id !== id);
+export async function removeProposalHistoryEntry(id: string): Promise<boolean> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    const r = await fetch(`${HISTORY_API}?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    return r.ok;
   } catch {
-    // ignore
+    return false;
   }
 }

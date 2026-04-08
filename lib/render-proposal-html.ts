@@ -1,4 +1,5 @@
 import { formatProposalData } from "./format-proposal-data";
+import { formatRateDisclaimerDate, getRateDisclaimerLines } from "./rate-disclaimer";
 import type { ProposalFormData } from "./schema";
 
 export interface RenderProposalOptions {
@@ -75,6 +76,21 @@ export function renderProposalHtml({
     .map((url, i) => photoBox(photoCell(url, i + 5)))
     .join("");
 
+  const showNc = d.show_currency_non_cash && d.currency_non_cash;
+  const gridCols = showNc ? 4 : 3;
+  const nonCashCell = showNc
+    ? `<div class="bg-white/10 rounded-lg px-4 py-3" style="background:rgba(255,255,255,0.1);border-radius:0.75rem;padding:0.75rem 1rem">
+      <div class="text-[11px] opacity-90" style="font-size:11px;opacity:0.9">Вал. безгот. вартість</div>
+      <div class="text-xs font-bold mt-1" style="font-size:12px;font-weight:700;margin-top:0.25rem">${esc(d.currency_non_cash)}</div>
+    </div>`
+    : "";
+  const rateLines = getRateDisclaimerLines(formatRateDisclaimerDate())
+    .map(
+      (line) =>
+        `<p style="margin:0 0 0.35rem 0;font-size:10px;line-height:1.45;opacity:0.9">${esc(line)}</p>`
+    )
+    .join("");
+
   const body = `
 <div class="proposal-template w-full max-w-[210mm] mx-auto bg-white relative" style="font-family: Inter, system-ui, sans-serif" data-template-id="commercial">
   <div class="relative">
@@ -121,19 +137,23 @@ export function renderProposalHtml({
       </section>
       <section class="text-white rounded-xl py-5 px-5 my-3 text-center" style="background: #1D304E; min-height: 120px">
         <h3 class="flex items-center justify-center gap-2 text-[13px] font-semibold mb-3">${walletIconSvg} Вартість та умови</h3>
-        <div class="grid grid-cols-3 gap-3 mt-2">
-          <div class="bg-white/10 rounded-lg px-4 py-3">
-            <div class="text-[11px] opacity-90">Вартість без ПДВ</div>
-            <div class="text-xs font-bold mt-1">${esc(d.price_without_vat || "—")}</div>
+        <div class="grid gap-3 mt-2" style="display:grid;grid-template-columns:repeat(${gridCols},minmax(0,1fr));gap:0.75rem;margin-top:0.5rem">
+          ${nonCashCell}
+          <div class="bg-white/10 rounded-lg px-4 py-3" style="background:rgba(255,255,255,0.1);border-radius:0.75rem;padding:0.75rem 1rem">
+            <div class="text-[11px] opacity-90" style="font-size:11px;opacity:0.9">Вартість без ПДВ</div>
+            <div class="text-xs font-bold mt-1" style="font-size:12px;font-weight:700;margin-top:0.25rem">${esc(d.price_without_vat || "—")}</div>
           </div>
-          <div class="bg-white/10 rounded-lg px-4 py-3">
-            <div class="text-[11px] opacity-90">Сума ПДВ</div>
-            <div class="text-xs font-bold mt-1">${esc(d.vat || "—")}</div>
+          <div class="bg-white/10 rounded-lg px-4 py-3" style="background:rgba(255,255,255,0.1);border-radius:0.75rem;padding:0.75rem 1rem">
+            <div class="text-[11px] opacity-90" style="font-size:11px;opacity:0.9">ПДВ (20%)</div>
+            <div class="text-xs font-bold mt-1" style="font-size:12px;font-weight:700;margin-top:0.25rem">${esc(d.vat || "—")}</div>
           </div>
-          <div class="bg-white/10 rounded-lg px-4 py-3">
-            <div class="text-[11px] opacity-90">Вартість з ПДВ</div>
-            <div class="text-xs font-bold mt-1">${esc(d.price_with_vat || "—")}</div>
+          <div class="bg-white/10 rounded-lg px-4 py-3" style="background:rgba(255,255,255,0.1);border-radius:0.75rem;padding:0.75rem 1rem">
+            <div class="text-[11px] opacity-90" style="font-size:11px;opacity:0.9">Вартість з ПДВ (грн)</div>
+            <div class="text-xs font-bold mt-1" style="font-size:12px;font-weight:700;margin-top:0.25rem">${esc(d.price_with_vat || "—")}</div>
           </div>
+        </div>
+        <div class="mt-3 text-left" style="margin-top:0.75rem;text-align:left">
+          ${rateLines}
         </div>
       </section>
       <div class="border border-[#1D304E] rounded-xl overflow-hidden shadow-sm my-3">

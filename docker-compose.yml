@@ -15,4 +15,5 @@ services:
     volumes:
       - ./data/uploads:/app/uploads
       - ./data/output:/app/output
+      - ./data/history:/app/data
       - ./data/proposal-print-temp:/app/.proposal-print-temp

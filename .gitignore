@@ -45,3 +45,7 @@ next-env.d.ts
 /output
 /temp_*
 .proposal-print-temp
+
+# persisted proposal history (JSON)
+/data/history/
+data/proposal-history.json

@@ -26,9 +26,9 @@ import { proposalSchema, type ProposalFormData } from "@/lib/schema";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import {
-  getProposalHistory,
-  addToProposalHistory,
-  deleteFromProposalHistory,
+  fetchProposalHistory,
+  saveProposalHistoryEntry,
+  removeProposalHistoryEntry,
   fileToDataUrl,
   dataUrlToFile,
   type ProposalHistoryEntry,
@@ -138,25 +138,40 @@ export function ProposalForm() {
     } as ProposalFormData;
   };
 
-  useEffect(() => {
-    const h = getProposalHistory();
+  const reloadHistory = async () => {
+    const h = await fetchProposalHistory();
     setLast5(h.slice(0, 5));
-    if (h.length > 0) {
-      const entry = h[0];
-      form.reset(mergeFormData(entry));
-      if (entry.photoDataUrls?.length) {
-        setPhotos(
-          entry.photoDataUrls.map((url, i) => dataUrlToFile(url, `photo-${i}.jpg`))
-        );
+    setHistoryList(h);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const h = await fetchProposalHistory();
+      if (cancelled) return;
+      setLast5(h.slice(0, 5));
+      if (h.length > 0) {
+        const entry = h[0];
+        form.reset(mergeFormData(entry));
+        if (entry.photoDataUrls?.length) {
+          setPhotos(
+            entry.photoDataUrls.map((url, i) => dataUrlToFile(url, `photo-${i}.jpg`))
+          );
+        }
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const openHistory = () => {
-    const h = getProposalHistory();
-    setHistoryList(h);
-    setLast5(h.slice(0, 5));
-    setHistoryOpen(true);
+    void (async () => {
+      const h = await fetchProposalHistory();
+      setHistoryList(h);
+      setLast5(h.slice(0, 5));
+      setHistoryOpen(true);
+    })();
   };
 
   const loadHistoryEntry = (entry: ProposalHistoryEntry) => {
@@ -172,10 +187,10 @@ export function ProposalForm() {
   };
 
   const removeFromHistory = (id: string) => {
-    deleteFromProposalHistory(id);
-    const h = getProposalHistory();
-    setHistoryList(h);
-    setLast5(h.slice(0, 5));
+    void (async () => {
+      await removeProposalHistoryEntry(id);
+      await reloadHistory();
+    })();
   };
 
   const historyFiltered =
@@ -209,12 +224,12 @@ export function ProposalForm() {
           photos.length > 0
             ? await Promise.all(photos.slice(0, 8).map(fileToDataUrl))
             : undefined;
-        addToProposalHistory({
+        await saveProposalHistoryEntry({
           file: json.file,
           formData: data,
           photoDataUrls,
         });
-        setLast5(getProposalHistory().slice(0, 5));
+        await reloadHistory();
         if (json.pdf_base64 && json.file) {
           const bin = atob(json.pdf_base64);
           const arr = new Uint8Array(bin.length);

@@ -942,11 +942,7 @@ export function ProposalForm() {
             type="button"
             variant="outline"
             onClick={openPreview}
-            disabled={
-              !form.formState.isValid ||
-              previewLoading ||
-              photos.length !== PHOTO_COUNT_REQUIRED
-            }
+            disabled={previewLoading}
           >
             {previewLoading ? "Завантаження…" : "Попередній перегляд"}
           </Button>

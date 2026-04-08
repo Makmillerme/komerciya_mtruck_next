@@ -296,6 +296,12 @@ export function ProposalForm() {
       : "—";
 
   useEffect(() => {
+    if (costMode === "calculator") {
+      form.clearErrors(["price_with_vat", "vat", "price_without_vat"]);
+    }
+  }, [costMode, form]);
+
+  useEffect(() => {
     if (costMode !== "calculator") return;
     const cv = Number.parseFloat(String(currencyValue ?? "").replace(",", ".")) || 0;
     const pct = Number.parseFloat(String(percentBase ?? "0").replace(",", ".")) || 0;

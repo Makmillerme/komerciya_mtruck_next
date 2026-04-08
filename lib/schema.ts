@@ -27,9 +27,10 @@ export const proposalSchema = z
   currency_non_cash_manual: z.string(),
   currency_code: z.enum(["usd", "eur"]),
   show_currency_non_cash: z.boolean(),
-  price_with_vat: requiredString,
-  price_without_vat: requiredString,
-  vat: requiredString,
+  /** У шаблоні 1 заповнює калькулятор; обов'язковість лише для шаблону 2 — у superRefine */
+  price_with_vat: z.string(),
+  price_without_vat: z.string(),
+  vat: z.string(),
 })
   .superRefine((data, ctx) => {
     if (data.cost_mode !== "manual") return;
@@ -42,6 +43,16 @@ export const proposalSchema = z
         message: "Вкажіть валютну безготівкову вартість (ціле число)",
         path: ["currency_non_cash_manual"],
       });
+    }
+    const req = "Обов'язкове поле";
+    if (!data.price_with_vat?.trim()) {
+      ctx.addIssue({ code: "custom", message: req, path: ["price_with_vat"] });
+    }
+    if (!data.vat?.trim()) {
+      ctx.addIssue({ code: "custom", message: req, path: ["vat"] });
+    }
+    if (!data.price_without_vat?.trim()) {
+      ctx.addIssue({ code: "custom", message: req, path: ["price_without_vat"] });
     }
   });
 

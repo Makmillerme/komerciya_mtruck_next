@@ -77,9 +77,11 @@ export function ProposalForm() {
       gearbox: "",
       seats: "",
       technical_state: "",
+      cost_mode: "calculator",
       currency_value: "",
       percent_base: "",
       additional_services: "",
+      currency_non_cash_manual: "",
       currency_code: "usd",
       show_currency_non_cash: true,
       price_with_vat: "",
@@ -115,16 +117,26 @@ export function ProposalForm() {
   };
 
   const defaultCostFields: Partial<ProposalFormData> = {
+    cost_mode: "calculator",
     currency_value: "",
     percent_base: "",
     additional_services: "",
+    currency_non_cash_manual: "",
     currency_code: "usd",
     show_currency_non_cash: true,
   };
-  const mergeFormData = (entry: ProposalHistoryEntry): ProposalFormData => ({
-    ...defaultCostFields,
-    ...entry.formData,
-  } as ProposalFormData);
+  const mergeFormData = (entry: ProposalHistoryEntry): ProposalFormData => {
+    const fd = entry.formData as Partial<ProposalFormData>;
+    return {
+      ...defaultCostFields,
+      ...fd,
+      cost_mode: fd.cost_mode === "manual" ? "manual" : "calculator",
+      currency_non_cash_manual:
+        typeof fd.currency_non_cash_manual === "string"
+          ? fd.currency_non_cash_manual
+          : "",
+    } as ProposalFormData;
+  };
 
   useEffect(() => {
     const h = getProposalHistory();
@@ -262,33 +274,55 @@ export function ProposalForm() {
       .catch(() => {});
   }, []);
 
+  const costMode = form.watch("cost_mode");
   const currencyValue = form.watch("currency_value");
   const percentBase = form.watch("percent_base");
   const additionalServices = form.watch("additional_services");
+  const currencyNonCashManual = form.watch("currency_non_cash_manual");
   const currencyCode = form.watch("currency_code");
   const currencyLabel = currencyCode === "eur" ? "EUR" : "USD";
   const cvNum = Number.parseFloat(String(currencyValue ?? "").replace(",", ".")) || 0;
   const pctNum = Number.parseFloat(String(percentBase ?? "0").replace(",", ".")) || 0;
   const addSvcNum = Number.parseFloat(String(additionalServices ?? "").replace(",", ".")) || 0;
-  const currencyNonCashVal = cvNum * (1 + pctNum / 100) + addSvcNum;
+  const currencyNonCashRounded =
+    costMode === "calculator"
+      ? Math.round(cvNum * (1 + pctNum / 100) + addSvcNum)
+      : Math.round(
+          Number.parseFloat(String(currencyNonCashManual ?? "").replace(",", ".")) || 0
+        );
+  const currencyNonCashDisplay =
+    currencyNonCashRounded > 0
+      ? `${currencyNonCashRounded.toLocaleString("uk-UA")} ${currencyLabel}`
+      : "—";
+
   useEffect(() => {
+    if (costMode !== "calculator") return;
     const cv = Number.parseFloat(String(currencyValue ?? "").replace(",", ".")) || 0;
     const pct = Number.parseFloat(String(percentBase ?? "0").replace(",", ".")) || 0;
     const addSvc = Number.parseFloat(String(additionalServices ?? "").replace(",", ".")) || 0;
     const code = (currencyCode ?? "usd") as "usd" | "eur";
-    const currencyNonCash = cv * (1 + pct / 100) + addSvc;
+    const roundedNonCash = Math.round(cv * (1 + pct / 100) + addSvc);
     const sellStr = currencyRates?.[code]?.sell ?? "";
     const rate = Number.parseFloat(sellStr.replace(",", ".")) || 0;
-    const priceWithVatUah = currencyNonCash * rate;
-    const vatUah = priceWithVatUah * 0.2;
-    const priceWithoutVatUah = priceWithVatUah - vatUah;
-    const withVat = rate > 0 ? priceWithVatUah.toFixed(2) : "";
-    const withoutVat = rate > 0 ? priceWithoutVatUah.toFixed(2) : "";
-    const vatVal = rate > 0 ? vatUah.toFixed(2) : "";
+    const priceWithVatUahRaw = roundedNonCash * rate;
+    const priceWithVatRounded = Math.round(priceWithVatUahRaw);
+    const vatUah = priceWithVatRounded * 0.2;
+    const priceWithoutVatUah = priceWithVatRounded - vatUah;
+    const withVat = rate > 0 && roundedNonCash > 0 ? priceWithVatRounded.toFixed(2) : "";
+    const withoutVat =
+      rate > 0 && roundedNonCash > 0 ? priceWithoutVatUah.toFixed(2) : "";
+    const vatVal = rate > 0 && roundedNonCash > 0 ? vatUah.toFixed(2) : "";
     form.setValue("price_with_vat", withVat, { shouldValidate: false });
     form.setValue("price_without_vat", withoutVat, { shouldValidate: false });
     form.setValue("vat", vatVal, { shouldValidate: false });
-  }, [currencyValue, percentBase, additionalServices, currencyCode, currencyRates]);
+  }, [
+    costMode,
+    currencyValue,
+    percentBase,
+    additionalServices,
+    currencyCode,
+    currencyRates,
+  ]);
 
   const openPreview = () => {
     setPreviewError(null);
@@ -642,52 +676,142 @@ export function ProposalForm() {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
             <CardTitle className="text-sm font-medium tracking-tight">
               Вартість
             </CardTitle>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Шаблон</span>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={costMode === "calculator" ? "default" : "outline"}
+                  className="size-8 p-0 shrink-0"
+                  title="Шаблон 1 — калькулятор"
+                  onClick={() => form.setValue("cost_mode", "calculator")}
+                >
+                  1
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={costMode === "manual" ? "default" : "outline"}
+                  className="size-8 p-0 shrink-0"
+                  title="Шаблон 2 — вручну"
+                  onClick={() => {
+                    const cv =
+                      Number.parseFloat(
+                        String(form.getValues("currency_value") ?? "").replace(",", ".")
+                      ) || 0;
+                    const pct =
+                      Number.parseFloat(
+                        String(form.getValues("percent_base") ?? "0").replace(",", ".")
+                      ) || 0;
+                    const addSvc =
+                      Number.parseFloat(
+                        String(form.getValues("additional_services") ?? "").replace(",", ".")
+                      ) || 0;
+                    const rounded = Math.round(cv * (1 + pct / 100) + addSvc);
+                    if (rounded > 0) {
+                      form.setValue("currency_non_cash_manual", String(rounded), {
+                        shouldValidate: false,
+                      });
+                    }
+                    form.setValue("cost_mode", "manual");
+                  }}
+                >
+                  2
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="flex flex-wrap items-end gap-4">
-              <FormField
-                control={form.control}
-                name="currency_value"
-                render={({ field }) => (
-                  <FormItem className="min-w-0 shrink-0">
-                    <FormLabel className="whitespace-nowrap">Валютна вартість ({currencyLabel})</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" className="w-28" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="percent_base"
-                render={({ field }) => (
-                  <FormItem className="min-w-0 shrink-0">
+              {costMode === "calculator" ? (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="currency_value"
+                    render={({ field }) => (
+                      <FormItem className="min-w-0 shrink-0">
+                        <FormLabel className="whitespace-nowrap">Валютна вартість ({currencyLabel})</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} step="0.01" placeholder="0" className="w-28" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="percent_base"
+                    render={({ field }) => (
+                      <FormItem className="min-w-0 shrink-0">
+                        <FormLabel className="whitespace-nowrap">Відсоткова база (%)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} step="0.01" placeholder="0" className="w-24" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="additional_services"
+                    render={({ field }) => (
+                      <FormItem className="min-w-0 shrink-0">
+                        <FormLabel className="whitespace-nowrap">Дод. послуги ({currencyLabel})</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} step="0.01" placeholder="0" className="w-28" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              ) : (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="currency_non_cash_manual"
+                    render={({ field }) => (
+                      <FormItem className="min-w-0 shrink-0">
+                        <FormLabel className="whitespace-nowrap">Валютна безготівкова ({currencyLabel})</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            placeholder="0"
+                            className="w-28"
+                            {...field}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === "") {
+                                field.onChange("");
+                                return;
+                              }
+                              const n = Number.parseInt(raw, 10);
+                              field.onChange(Number.isNaN(n) ? "" : String(Math.max(0, n)));
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormItem className="min-w-0 shrink-0 opacity-60 pointer-events-none">
                     <FormLabel className="whitespace-nowrap">Відсоткова база (%)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" className="w-24" {...field} />
-                    </FormControl>
-                    <FormMessage />
+                    <Input readOnly value="" placeholder="—" className="w-24 bg-muted" aria-hidden />
                   </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="additional_services"
-                render={({ field }) => (
-                  <FormItem className="min-w-0 shrink-0">
+                  <FormItem className="min-w-0 shrink-0 opacity-60 pointer-events-none">
                     <FormLabel className="whitespace-nowrap">Дод. послуги ({currencyLabel})</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.01" placeholder="0" className="w-28" {...field} />
-                    </FormControl>
-                    <FormMessage />
+                    <Input readOnly value="" placeholder="—" className="w-28 bg-muted" aria-hidden />
                   </FormItem>
-                )}
-              />
+                </>
+              )}
               <FormField
                 control={form.control}
                 name="currency_code"
@@ -726,11 +850,7 @@ export function ProposalForm() {
             <div className="flex flex-wrap items-center gap-6">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-muted-foreground text-xs">Валютна безготівкова вартість</Label>
-                <span className="text-sm font-medium">
-                  {currencyNonCashVal > 0
-                    ? `${currencyNonCashVal.toLocaleString("uk-UA", { minimumFractionDigits: 2 })} ${currencyLabel}`
-                    : "—"}
-                </span>
+                <span className="text-sm font-medium">{currencyNonCashDisplay}</span>
               </div>
               <FormField
                 control={form.control}
@@ -760,7 +880,12 @@ export function ProposalForm() {
                   <FormItem>
                     <FormLabel>Вартість з ПДВ (грн)</FormLabel>
                     <FormControl>
-                      <Input type="text" readOnly className="bg-muted" {...field} />
+                      <Input
+                        type="text"
+                        readOnly={costMode === "calculator"}
+                        className={costMode === "calculator" ? "bg-muted" : ""}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -773,7 +898,12 @@ export function ProposalForm() {
                   <FormItem>
                     <FormLabel>ПДВ (20%)</FormLabel>
                     <FormControl>
-                      <Input type="text" readOnly className="bg-muted" {...field} />
+                      <Input
+                        type="text"
+                        readOnly={costMode === "calculator"}
+                        className={costMode === "calculator" ? "bg-muted" : ""}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -786,7 +916,12 @@ export function ProposalForm() {
                   <FormItem>
                     <FormLabel>Вартість без ПДВ (грн)</FormLabel>
                     <FormControl>
-                      <Input type="text" readOnly className="bg-muted" {...field} />
+                      <Input
+                        type="text"
+                        readOnly={costMode === "calculator"}
+                        className={costMode === "calculator" ? "bg-muted" : ""}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -40,10 +40,26 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
   let seats = data.seats ?? "";
   if (seats) seats = addUnitIfNeeded(seats, "місця");
 
+  const currencyLabel = data.currency_code === "eur" ? "EUR" : "USD";
+  const showCurrencyNonCash = data.show_currency_non_cash ?? true;
+  const costMode = data.cost_mode ?? "calculator";
+
   let priceWithVat = data.price_with_vat ?? "";
   if (priceWithVat) {
-    priceWithVat = formatNumberWithSpaces(priceWithVat);
-    priceWithVat = addUnitIfNeeded(priceWithVat, "грн");
+    if (costMode === "calculator") {
+      const n = Number.parseFloat(priceWithVat.replace(/\s/g, "").replace(",", "."));
+      if (!Number.isNaN(n)) {
+        const intPart = Math.round(n);
+        const formatted = intPart.toLocaleString("uk-UA").replace(/\s/g, " ");
+        priceWithVat = addUnitIfNeeded(`${formatted},00`, "грн");
+      } else {
+        priceWithVat = formatNumberWithSpaces(priceWithVat);
+        priceWithVat = addUnitIfNeeded(priceWithVat, "грн");
+      }
+    } else {
+      priceWithVat = formatNumberWithSpaces(priceWithVat);
+      priceWithVat = addUnitIfNeeded(priceWithVat, "грн");
+    }
   }
 
   let priceWithoutVat = data.price_without_vat ?? "";
@@ -58,15 +74,30 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
     vat = addUnitIfNeeded(vat, "грн");
   }
 
-  const currencyLabel = (data.currency_code === "eur" ? "EUR" : "USD");
-  const showCurrencyNonCash = data.show_currency_non_cash ?? true;
-  const cv = Number.parseFloat(String(data.currency_value ?? "").replace(",", ".")) || 0;
-  const pct = Number.parseFloat(String(data.percent_base ?? "0").replace(",", ".")) || 0;
-  const addSvc = Number.parseFloat(String(data.additional_services ?? "").replace(",", ".")) || 0;
-  const currencyNonCashNum = cv * (1 + pct / 100) + addSvc;
   let currencyNonCash = "";
-  if (showCurrencyNonCash && currencyNonCashNum > 0) {
-    currencyNonCash = formatNumberWithSpaces(currencyNonCashNum.toFixed(2)) + " " + currencyLabel;
+  if (showCurrencyNonCash) {
+    if (costMode === "manual") {
+      const mn =
+        Math.round(
+          Number.parseFloat(
+            String(data.currency_non_cash_manual ?? "").replace(",", ".")
+          ) || 0
+        );
+      if (mn > 0) {
+        currencyNonCash = formatNumberWithSpaces(String(mn)) + " " + currencyLabel;
+      }
+    } else {
+      const cv =
+        Number.parseFloat(String(data.currency_value ?? "").replace(",", ".")) || 0;
+      const pct =
+        Number.parseFloat(String(data.percent_base ?? "0").replace(",", ".")) || 0;
+      const addSvc =
+        Number.parseFloat(String(data.additional_services ?? "").replace(",", ".")) || 0;
+      const rounded = Math.round(cv * (1 + pct / 100) + addSvc);
+      if (rounded > 0) {
+        currencyNonCash = formatNumberWithSpaces(String(rounded)) + " " + currencyLabel;
+      }
+    }
   }
 
   return {

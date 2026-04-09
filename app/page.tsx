@@ -17,7 +17,7 @@ const ProposalForm = dynamic(
 
 export default function Home() {
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-3 sm:px-4 lg:max-w-7xl xl:max-w-[85rem] 2xl:max-w-[92rem] lg:px-6">
       <ProposalForm />
     </div>
   );

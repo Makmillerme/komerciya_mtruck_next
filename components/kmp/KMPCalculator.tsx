@@ -93,12 +93,9 @@ export function KMPCalculator() {
   const [lastSavedKmpFingerprint, setLastSavedKmpFingerprint] = useState<
     string | null
   >(null);
-  const [historyPick, setHistoryPick] = useState<string>(() => {
-    const d = readKmpDraft();
-    return typeof d?.historyPick === "string"
-      ? d.historyPick
-      : KMP_PROPOSAL_HISTORY_NONE;
-  });
+  const [historyPick, setHistoryPick] = useState<string>(
+    KMP_PROPOSAL_HISTORY_NONE
+  );
   const [kmpHistoryOpen, setKmpHistoryOpen] = useState(false);
   const [kmpHistorySearch, setKmpHistorySearch] = useState("");
   const [modeValue, setModeValue] = useState<KmpPaymentMode>("annuity");
@@ -169,7 +166,8 @@ export function KMPCalculator() {
     },
   });
 
-  const { data: history = [] } = useProposalHistoryList();
+  const { data: history = [], isFetched: proposalHistoryFetched } =
+    useProposalHistoryList();
   const { data: kmpHistoryList = [] } = useKmpHistoryList();
 
   const kmpLast5 = useMemo(
@@ -208,6 +206,9 @@ export function KMPCalculator() {
       form.reset({ ...kmpFormEmptyValues(), ...d.values });
       if (d.values.mode) setModeValue(d.values.mode);
     }
+    if (typeof d?.historyPick === "string") {
+      setHistoryPick(d.historyPick);
+    }
     draftWriteReadyRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
@@ -229,7 +230,9 @@ export function KMPCalculator() {
       ? "Оберіть КП з історії"
       : selectedEntry
         ? historyCompactLabel(selectedEntry)
-        : historyPick;
+        : proposalHistoryFetched
+          ? "Запис у історії КП не знайдено"
+          : "Завантаження…";
 
   const loadKmpHistoryEntry = (entry: KmpHistoryEntry) => {
     const vals = { ...kmpFormEmptyValues(), ...entry.inputs };
@@ -360,10 +363,9 @@ export function KMPCalculator() {
         historyPick={historyPick}
         readyRef={draftWriteReadyRef}
       />
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-8 xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
+      <div className="flex min-w-0 flex-col gap-8">
           <FormProvider {...form}>
-          <div className="grid gap-6">
+          <div className="grid min-w-0 gap-6">
             <KmpImportFromProposalCard
               control={form.control}
               history={history}
@@ -541,7 +543,8 @@ export function KMPCalculator() {
           </div>
           </FormProvider>
 
-          <KmpCalculatorLivePanel
+          <div className="min-w-0">
+            <KmpCalculatorLivePanel
             form={form}
             kmpLast5={kmpLast5}
             loadKmpHistoryEntry={loadKmpHistoryEntry}
@@ -552,7 +555,7 @@ export function KMPCalculator() {
             formatUah={formatUah}
             formatUah2={formatUah2}
           />
-        </div>
+          </div>
       </div>
 
       <KmpHistoryDrawer

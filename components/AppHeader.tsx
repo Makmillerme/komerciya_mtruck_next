@@ -33,11 +33,11 @@ export function AppHeader() {
   }, []);
 
   return (
-    <header className="h-14 shrink-0 flex items-center justify-between gap-4 px-4 border-b border-border bg-background">
-      <h1 className="text-lg font-medium tracking-tight truncate">
+    <header className="flex min-h-14 shrink-0 flex-col gap-2 border-b border-border bg-background px-3 py-2 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4 sm:py-0">
+      <h1 className="text-base font-medium tracking-tight sm:text-lg min-w-0 leading-snug sm:truncate">
         {title}
       </h1>
-      <div className="flex items-center gap-4 shrink-0 text-sm text-muted-foreground">
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-sm">
         {rates ? (
           <>
             <span title="Долар США (купівля / продаж)">

@@ -1,0 +1,1 @@
+KMP calculator main layout is a single vertical stack (`flex flex-col gap-8`): Імпорт з КП + Параметри угоди (`FormProvider` + inner `grid gap-6`), then `KmpCalculatorLivePanel` below. Removed `xl:grid` two-column layout.

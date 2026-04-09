@@ -1,4 +1,6 @@
 import { addUnitIfNeeded, formatNumberWithSpaces } from "./pdf-utils";
+import { parseRateDisclaimerLines } from "./rate-disclaimer";
+import { resolveSupplierForProposal } from "./proposal-supplier-defaults";
 import type { ProposalFormData } from "./schema";
 
 export interface FormattedProposalData {
@@ -22,6 +24,14 @@ export interface FormattedProposalData {
   currency_non_cash: string;
   show_currency_non_cash: boolean;
   currency_label: string;
+  /** Абзаци примітки про курс (для КП) */
+  rate_disclaimer_lines: string[];
+  supplier_company: string;
+  supplier_edrpou: string;
+  supplier_address_lines: string[];
+  supplier_contact_phones: string[];
+  supplier_show_address: boolean;
+  supplier_show_contact: boolean;
 }
 
 export function formatProposalData(data: Partial<ProposalFormData>): FormattedProposalData {
@@ -74,6 +84,8 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
     vat = addUnitIfNeeded(vat, "грн");
   }
 
+  const supplier = resolveSupplierForProposal(data);
+
   let currencyNonCash = "";
   if (showCurrencyNonCash) {
     if (costMode === "manual") {
@@ -121,5 +133,12 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
     currency_non_cash: currencyNonCash,
     show_currency_non_cash: showCurrencyNonCash,
     currency_label: currencyLabel,
+    rate_disclaimer_lines: parseRateDisclaimerLines(data.rate_disclaimer_text),
+    supplier_company: supplier.supplier_company,
+    supplier_edrpou: supplier.supplier_edrpou,
+    supplier_address_lines: supplier.supplier_address_lines,
+    supplier_contact_phones: supplier.supplier_contact_phones,
+    supplier_show_address: supplier.supplier_show_address,
+    supplier_show_contact: supplier.supplier_show_contact,
   };
 }

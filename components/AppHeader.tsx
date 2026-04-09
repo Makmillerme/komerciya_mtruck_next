@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Генератор PDF Комерційних Пропозицій",
-  "/invoices": "Рахунки",
   "/kmp": "КМП — Калькулятор місячних платежів",
 };
 

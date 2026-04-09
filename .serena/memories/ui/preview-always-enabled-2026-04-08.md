@@ -1,0 +1,1 @@
+Preview button (Попередній перегляд) disabled only while previewLoading (photo data URLs resolving). Removed form.formState.isValid and PHOTO_COUNT_REQUIRED gates. PDF submit still requires valid form + 8 photos. Commit 0f95084.

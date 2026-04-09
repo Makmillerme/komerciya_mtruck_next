@@ -1,5 +1,5 @@
 import { formatProposalData } from "./format-proposal-data";
-import { formatRateDisclaimerDate, getRateDisclaimerLines } from "./rate-disclaimer";
+
 import type { ProposalFormData } from "./schema";
 
 export interface RenderProposalOptions {
@@ -42,19 +42,24 @@ export function renderProposalHtml({
   const walletIconSvg = `<svg class="w-4 h-4 opacity-90 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>`;
 
   const basicSpecs = [
-    ["Марка/Модель", d.model],
+    ["Тип кузова", d.body_type],
     ["VIN", d.vin],
     ["Рік виготовлення", d.year],
     ["Пробіг", d.mileage],
     ["Колір", d.color],
     ["Країна виробник", d.country],
-    ["Технічний стан", d.technical_state],
   ]
     .map(([l, v]) => specRow(l, v))
     .join("");
 
+  const technicalStateFullRow = `<div class="mt-3 bg-white rounded-xl border border-[#e5e7eb] px-3 py-2.5 shadow-sm" style="margin-top:0.75rem;background:#fff;border-radius:0.75rem;border:1px solid #e5e7eb;padding:0.625rem 0.75rem;box-shadow:0 1px 2px rgba(0,0,0,0.05)">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:0.5rem 1rem;font-size:11px">
+      <span style="color:#555;font-weight:500;flex-shrink:0">Технічний стан:</span>
+      <span style="font-weight:600;color:#1f2937;text-align:right;flex:1;min-width:0">${esc(d.technical_state || "—")}</span>
+    </div>
+  </div>`;
+
   const techSpecs = [
-    ["Тип кузова", d.body_type],
     ["Колісна формула", d.wheel_formula],
     ["Двигун", d.engine_type],
     ["Об'єм двигуна", d.engine_volume],
@@ -84,23 +89,51 @@ export function renderProposalHtml({
       <div class="text-xs font-bold mt-1" style="font-size:12px;font-weight:700;margin-top:0.25rem">${esc(d.currency_non_cash)}</div>
     </div>`
     : "";
-  const rateLines = getRateDisclaimerLines(formatRateDisclaimerDate())
+  const supplierAddrHtml = d.supplier_address_lines
+    .map((line) => esc(line))
+    .join("<br>");
+  const supplierAddressColumn = d.supplier_show_address
+    ? `<div class="flex items-center gap-2 text-[11px] text-center">
+            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: #1D304E">📍</div>
+            <div>${supplierAddrHtml}</div>
+          </div>`
+    : "";
+  const supplierGridStyle = d.supplier_show_address
+    ? "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.75rem;align-items:flex-start;justify-items:center"
+    : "display:grid;grid-template-columns:minmax(0,1fr);gap:0.75rem;align-items:flex-start;justify-items:center";
+  const supplierContactBlock = d.supplier_show_contact
+    ? `<div class="mt-3 pt-3 border-t border-[#e5e7eb] text-[11px] text-center w-full" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #e5e7eb;font-size:11px;text-align:center;width:100%">
+          <p style="color:#1D304E;font-weight:600;margin-bottom:0.5rem">Контактна інформація</p>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0.375rem;color:#333">
+            ${d.supplier_contact_phones
+              .map(
+                (tel) =>
+                  `<div style="display:flex;align-items:center;gap:0.5rem;justify-content:center"><span aria-hidden="true">📞</span><span>${esc(tel)}</span></div>`
+              )
+              .join("")}
+          </div>
+        </div>`
+    : "";
+
+  const rateLines = d.rate_disclaimer_lines
     .map(
       (line) =>
         `<p style="margin:0 0 0.35rem 0;font-size:10px;line-height:1.45;opacity:0.9">${esc(line)}</p>`
     )
     .join("");
+  const rateDisclaimerBlock = d.show_currency_non_cash
+    ? `<div class="mt-3 text-left" style="margin-top:0.75rem;text-align:left">${rateLines}</div>`
+    : "";
 
   const body = `
 <div class="proposal-template w-full max-w-[210mm] mx-auto bg-white relative" style="font-family: Inter, system-ui, sans-serif" data-template-id="commercial">
   <div class="relative">
   <header class="text-white text-center py-6 px-6" style="background: #1D304E">
     <h1 class="text-2xl md:text-[28px] font-bold tracking-tight mb-1.5">КОМЕРЦІЙНА ПРОПОЗИЦІЯ</h1>
-    <p class="text-base opacity-90 font-medium tracking-wide">Автомобільний транспорт</p>
+    <p class="text-base opacity-90 font-medium tracking-wide">${esc(d.model || "—")}</p>
   </header>
   <div class="px-3 py-2">
     <section class="rounded-xl py-3 px-4 mb-3" style="background: #f8f9fa; border-left: 4px solid #1D304E">
-      <h2 class="text-lg font-bold text-[#1D304E] mb-1.5 tracking-tight">${esc(d.model || "—")}</h2>
       <p class="text-sm text-[#666] font-medium mb-3">Вантажний автомобіль для комерційного використання</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="bg-white rounded-xl border border-[#e5e7eb] p-3 shadow-sm">
@@ -118,6 +151,7 @@ export function renderProposalHtml({
           <div class="space-y-1">${techSpecs}</div>
         </div>
       </div>
+      ${technicalStateFullRow}
     </section>
     <section class="my-3">
         <h3 class="flex items-center gap-2.5 text-[#1D304E] text-xs font-semibold mb-2">
@@ -152,9 +186,7 @@ export function renderProposalHtml({
             <div class="text-xs font-bold mt-1" style="font-size:12px;font-weight:700;margin-top:0.25rem">${esc(d.price_with_vat || "—")}</div>
           </div>
         </div>
-        <div class="mt-3 text-left" style="margin-top:0.75rem;text-align:left">
-          ${rateLines}
-        </div>
+        ${rateDisclaimerBlock}
       </section>
       <div class="border border-[#1D304E] rounded-xl overflow-hidden shadow-sm my-3">
         <div class="flex items-center gap-4 p-3">
@@ -173,16 +205,14 @@ export function renderProposalHtml({
       </div>
       <section class="bg-[#f8f9fa] border border-[#e5e7eb] rounded-xl p-3 my-3">
         <h3 class="text-[#1D304E] text-[13px] font-semibold mb-2 text-center">Інформація про постачальника</h3>
-        <div class="grid grid-cols-2 gap-3 items-center justify-items-center">
+        <div style="${supplierGridStyle}">
           <div class="flex items-center gap-2 text-[11px] text-center">
             <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: #1D304E">🏢</div>
-            <div><strong>ПП &quot;БРЕЙН КОМПАНІ&quot;</strong><br>ЄДРПОУ: 45373226</div>
+            <div><strong>${esc(d.supplier_company)}</strong><br>ЄДРПОУ: ${esc(d.supplier_edrpou)}</div>
           </div>
-          <div class="flex items-center gap-2 text-[11px] text-center">
-            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: #1D304E">📍</div>
-            <div>07400, Київська обл., м. Бровари,<br>вул. Січових Стрільців, буд. 11</div>
-          </div>
+          ${supplierAddressColumn}
         </div>
+        ${supplierContactBlock}
       </section>
       <footer class="text-white py-2.5 px-3 text-center text-xs mt-3" style="background: #1D304E">
         <div class="flex justify-center py-1">

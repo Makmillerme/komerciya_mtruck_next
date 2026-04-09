@@ -1,7 +1,6 @@
-export default function InvoicesPage() {
-  return (
-    <div className="mx-auto w-full max-w-5xl">
-      <p className="text-sm text-muted-foreground">Розділ рахунків (в розробці)</p>
-    </div>
-  );
+import { redirect } from "next/navigation";
+
+/** Розділ прибрано з навігації; старі закладки ведуть на головну. */
+export default function InvoicesRedirectPage() {
+  redirect("/");
 }

@@ -1,0 +1,1 @@
+VAT UAH fields (price_with_vat, vat, price_without_vat) are z.string() in base schema; required only when cost_mode === manual via superRefine with message "Обов'язкове поле". Calculator template no longer shows required errors on those fields. ProposalForm clears errors on those paths when switching to calculator (useEffect on costMode). Git: 7361d6e.

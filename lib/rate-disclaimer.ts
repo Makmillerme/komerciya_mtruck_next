@@ -15,3 +15,18 @@ export function getRateDisclaimerLines(dateLabel: string): string[] {
     "У зв'язку з можливими коливаннями валютного курсу, остаточна сума в гривні може відрізнятись від попереднього розрахунку.",
   ];
 }
+
+/** Текст за замовчуванням для поля «Примітка про курс» у формі (абзаци через \n). */
+export function getDefaultRateDisclaimerText(date: Date = new Date()): string {
+  return getRateDisclaimerLines(formatRateDisclaimerDate(date)).join("\n");
+}
+
+/** Розбити збережений текст на абзаци для КП; порожній рядок → заводські рядки з датою. */
+export function parseRateDisclaimerLines(
+  raw: string | undefined,
+  date: Date = new Date()
+): string[] {
+  const t = (raw ?? "").trim();
+  if (!t) return getRateDisclaimerLines(formatRateDisclaimerDate(date));
+  return t.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+}

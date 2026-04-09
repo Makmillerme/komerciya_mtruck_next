@@ -1,27 +1,11 @@
-## Калькулятор вартості в КП (блок Вартість)
+## Cost block (2026 update)
 
-### Вхідні поля (один рядок)
-- **Валютна вартість** — число (currency_value)
-- **Відсоткова база (%)** — доплюсування до валюти (percent_base)
-- **Дод. послуги** — опційно (additional_services)
+- **cost_mode**: `calculator` | `manual` (schema + form).
+- **Шаблон 1**: калькулятор — валютна вартість, % база, дод. послуги, валюта; автоматичні грн поля.
+- **Шаблон 2**: вручну — перший слот: `currency_non_cash_manual` (ціле), наступні два слоти — disabled placeholders для збереження ширини; валюта + ПДВ блок редаговані.
+- **Валютна безготівкова**: калькулятор = `Math.round(cv*(1+pct/100)+addSvc)`; без копійок у UI та PDF.
+- **Грн (калькулятор)**: `priceWithVatInt = Math.round(roundedNonCash * rate)`; `vat = priceWithVatInt * 0.2`; `without = priceWithVatInt - vat` без додаткового round. У PDF «з ПДВ» як `X,00 грн`.
+- **Ручний шаблон**: три суми в грн вводяться користувачем; з ПДВ форматується через звичайний `formatNumberWithSpaces`.
+- Валідація manual: `currency_non_cash_manual` > 0.
 
-### Обчислення
-- Валютна безготівкова = currency_value * (1 + percent_base/100) + additional_services (read-only у формі)
-- Курс: /api/currency повертає usd/eur buy/sell; використовується **продаж** (sell)
-- Вартість з ПДВ (грн) = валютна безготівкова * курс продажу
-- ПДВ = 20% від вартості з ПДВ
-- Вартість без ПДВ = вартість з ПДВ − ПДВ
-
-### Форма
-- Валюту вибирають зі списку (USD за замовчуванням, EUR)
-- Три поля (з ПДВ, ПДВ, без ПДВ) — тільки для читання, заповнюються useEffect при зміні currency_value, percent_base, additional_services, currency_code або currencyRates
-- Чекбокс: «Показувати валютну безготівкову вартість у шаблоні КП» (show_currency_non_cash)
-
-### Схема (lib/schema.ts)
-currency_value, percent_base, additional_services (string), currency_code (usd|eur), show_currency_non_cash (boolean), price_with_vat, price_without_vat, vat (обчислені, requiredString)
-
-### Шаблон (ProposalTemplate)
-Якщо show_currency_non_cash і є currency_non_cash — показується 4-та комірка «Вал. безгот. вартість» і підзаголовок «за курсом продажу {currency_label}». Інакше — 3 комірки (без ПДВ, ПДВ, з ПДВ).
-
-### Історія
-При завантаженні з історії mergeFormData підставляє defaultCostFields для старих записів без нових полів.
+Git: commit a8bc28f on main.

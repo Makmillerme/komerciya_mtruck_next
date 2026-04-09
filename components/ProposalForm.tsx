@@ -1,10 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useProposalCostFields } from "@/hooks/use-proposal-cost-fields";
+import {
+  useProposalHistoryList,
+  useRemoveProposalHistoryEntry,
+  useSaveProposalHistoryEntry,
+} from "@/hooks/use-proposal-history";
+import { queryKeys } from "@/lib/query-keys";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { HistoryActionBar } from "@/components/history/HistoryActionBar";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { getDefaultRateDisclaimerText } from "@/lib/rate-disclaimer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
@@ -24,17 +35,30 @@ import {
 } from "@/components/ui/select";
 import { proposalSchema, type ProposalFormData } from "@/lib/schema";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import {
-  fetchProposalHistory,
-  saveProposalHistoryEntry,
-  removeProposalHistoryEntry,
+  getDefaultSupplierFormValues,
+  mergeSupplierFormFieldsForHistory,
+} from "@/lib/proposal-supplier-defaults";
+import {
   fileToDataUrl,
   dataUrlToFile,
   type ProposalHistoryEntry,
 } from "@/lib/proposal-history";
 import { ProposalTemplate } from "@/components/templates/ProposalTemplate";
 import { formatProposalData } from "@/lib/format-proposal-data";
+import {
+  computeProposalCalculatorUahFields,
+  computeRoundedNonCashFx,
+} from "@/lib/proposal-cost-from-form";
+import {
+  coerceEngineTypeOption,
+  coerceGearboxOption,
+  coerceWheelFormula,
+  ENGINE_TYPE_OPTIONS,
+  GEARBOX_OPTIONS,
+  WHEEL_FORMULA_OPTIONS,
+} from "@/lib/proposal-select-options";
 
 function reorderFiles(arr: File[], from: number, to: number): File[] {
   const copy = [...arr];
@@ -44,20 +68,41 @@ function reorderFiles(arr: File[], from: number, to: number): File[] {
 }
 
 export function ProposalForm() {
+  const historyHydratedRef = useRef(false);
   const [photos, setPhotos] = useState<File[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyList, setHistoryList] = useState<ProposalHistoryEntry[]>([]);
   const [historySearch, setHistorySearch] = useState("");
-  const [last5, setLast5] = useState<ProposalHistoryEntry[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPhotoUrls, setPreviewPhotoUrls] = useState<string[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [currencyRates, setCurrencyRates] = useState<{ usd: { buy: string; sell: string }; eur: { buy: string; sell: string }; updatedAt: string } | null>(null);
+
+  const { data: historyList = [] } = useProposalHistoryList();
+  const saveProposalHistoryMutation = useSaveProposalHistoryEntry();
+  const removeProposalHistoryMutation = useRemoveProposalHistoryEntry();
+
+  const last5 = useMemo(() => historyList.slice(0, 5), [historyList]);
+
+  const { data: currencyRates = null } = useQuery({
+    queryKey: queryKeys.currency,
+    queryFn: async () => {
+      const r = await fetch("/api/currency");
+      if (!r.ok) return null;
+      const data = (await r.json()) as Record<string, unknown>;
+      const usd = data?.usd as Record<string, unknown> | undefined;
+      const eur = data?.eur as Record<string, unknown> | undefined;
+      if (usd?.sell == null || eur?.sell == null) return null;
+      return data as {
+        usd: { buy: string; sell: string };
+        eur: { buy: string; sell: string };
+        updatedAt: string;
+      };
+    },
+  });
 
   const form = useForm<ProposalFormData>({
     resolver: zodResolver(proposalSchema),
@@ -70,13 +115,15 @@ export function ProposalForm() {
       color: "",
       country: "",
       body_type: "",
-      wheel_formula: "",
-      engine_type: "",
+      wheel_formula: WHEEL_FORMULA_OPTIONS[0],
+      engine_type: ENGINE_TYPE_OPTIONS[0],
       engine_volume: "",
       power: "",
-      gearbox: "",
+      gearbox: GEARBOX_OPTIONS[0],
       seats: "",
       technical_state: "",
+      rate_disclaimer_text: getDefaultRateDisclaimerText(),
+      ...getDefaultSupplierFormValues(),
       cost_mode: "calculator",
       currency_value: "",
       percent_base: "",
@@ -126,10 +173,29 @@ export function ProposalForm() {
     show_currency_non_cash: true,
   };
   const mergeFormData = (entry: ProposalHistoryEntry): ProposalFormData => {
-    const fd = entry.formData as Partial<ProposalFormData>;
+    const rawFd = entry.formData as Partial<ProposalFormData> & {
+      supplier_address?: string;
+    };
+    const { supplier_address: _legacyAddr, ...fd } = rawFd;
+    void _legacyAddr;
+    const supplierFm = mergeSupplierFormFieldsForHistory(rawFd);
     return {
       ...defaultCostFields,
       ...fd,
+      rate_disclaimer_text:
+        typeof fd.rate_disclaimer_text === "string"
+          ? fd.rate_disclaimer_text
+          : getDefaultRateDisclaimerText(),
+      ...supplierFm,
+      wheel_formula: coerceWheelFormula(
+        typeof fd.wheel_formula === "string" ? fd.wheel_formula : undefined
+      ),
+      engine_type: coerceEngineTypeOption(
+        typeof fd.engine_type === "string" ? fd.engine_type : undefined
+      ),
+      gearbox: coerceGearboxOption(
+        typeof fd.gearbox === "string" ? fd.gearbox : undefined
+      ),
       cost_mode: fd.cost_mode === "manual" ? "manual" : "calculator",
       currency_non_cash_manual:
         typeof fd.currency_non_cash_manual === "string"
@@ -138,40 +204,22 @@ export function ProposalForm() {
     } as ProposalFormData;
   };
 
-  const reloadHistory = async () => {
-    const h = await fetchProposalHistory();
-    setLast5(h.slice(0, 5));
-    setHistoryList(h);
-  };
-
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const h = await fetchProposalHistory();
-      if (cancelled) return;
-      setLast5(h.slice(0, 5));
-      if (h.length > 0) {
-        const entry = h[0];
-        form.reset(mergeFormData(entry));
-        if (entry.photoDataUrls?.length) {
-          setPhotos(
-            entry.photoDataUrls.map((url, i) => dataUrlToFile(url, `photo-${i}.jpg`))
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (historyHydratedRef.current || historyList.length === 0) return;
+    historyHydratedRef.current = true;
+    const entry = historyList[0];
+    form.reset(mergeFormData(entry));
+    if (entry.photoDataUrls?.length) {
+      setPhotos(
+        entry.photoDataUrls.map((url, i) =>
+          dataUrlToFile(url, `photo-${i}.jpg`)
+        )
+      );
+    }
+  }, [historyList, form]);
 
   const openHistory = () => {
-    void (async () => {
-      const h = await fetchProposalHistory();
-      setHistoryList(h);
-      setLast5(h.slice(0, 5));
-      setHistoryOpen(true);
-    })();
+    setHistoryOpen(true);
   };
 
   const loadHistoryEntry = (entry: ProposalHistoryEntry) => {
@@ -187,10 +235,7 @@ export function ProposalForm() {
   };
 
   const removeFromHistory = (id: string) => {
-    void (async () => {
-      await removeProposalHistoryEntry(id);
-      await reloadHistory();
-    })();
+    removeProposalHistoryMutation.mutate(id);
   };
 
   const historyFiltered =
@@ -224,12 +269,11 @@ export function ProposalForm() {
           photos.length > 0
             ? await Promise.all(photos.slice(0, 8).map(fileToDataUrl))
             : undefined;
-        await saveProposalHistoryEntry({
+        await saveProposalHistoryMutation.mutateAsync({
           file: json.file,
           formData: data,
           photoDataUrls,
         });
-        await reloadHistory();
         if (json.pdf_base64 && json.file) {
           const bin = atob(json.pdf_base64);
           const arr = new Uint8Array(bin.length);
@@ -280,31 +324,22 @@ export function ProposalForm() {
     return () => { cancelled = true; };
   }, [photos]);
 
-  useEffect(() => {
-    fetch("/api/currency")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.usd?.sell != null) setCurrencyRates(data);
-      })
-      .catch(() => {});
-  }, []);
-
-  const costMode = form.watch("cost_mode");
-  const currencyValue = form.watch("currency_value");
-  const percentBase = form.watch("percent_base");
-  const additionalServices = form.watch("additional_services");
-  const currencyNonCashManual = form.watch("currency_non_cash_manual");
-  const currencyCode = form.watch("currency_code");
+  const [
+    costMode,
+    currencyValue,
+    percentBase,
+    additionalServices,
+    currencyNonCashManual,
+    currencyCode,
+  ] = useProposalCostFields(form.control);
   const currencyLabel = currencyCode === "eur" ? "EUR" : "USD";
-  const cvNum = Number.parseFloat(String(currencyValue ?? "").replace(",", ".")) || 0;
-  const pctNum = Number.parseFloat(String(percentBase ?? "0").replace(",", ".")) || 0;
-  const addSvcNum = Number.parseFloat(String(additionalServices ?? "").replace(",", ".")) || 0;
-  const currencyNonCashRounded =
-    costMode === "calculator"
-      ? Math.round(cvNum * (1 + pctNum / 100) + addSvcNum)
-      : Math.round(
-          Number.parseFloat(String(currencyNonCashManual ?? "").replace(",", ".")) || 0
-        );
+  const currencyNonCashRounded = computeRoundedNonCashFx({
+    cost_mode: costMode,
+    currency_value: currencyValue,
+    percent_base: percentBase,
+    additional_services: additionalServices,
+    currency_non_cash_manual: currencyNonCashManual,
+  });
   const currencyNonCashDisplay =
     currencyNonCashRounded > 0
       ? `${currencyNonCashRounded.toLocaleString("uk-UA")} ${currencyLabel}`
@@ -318,24 +353,19 @@ export function ProposalForm() {
 
   useEffect(() => {
     if (costMode !== "calculator") return;
-    const cv = Number.parseFloat(String(currencyValue ?? "").replace(",", ".")) || 0;
-    const pct = Number.parseFloat(String(percentBase ?? "0").replace(",", ".")) || 0;
-    const addSvc = Number.parseFloat(String(additionalServices ?? "").replace(",", ".")) || 0;
-    const code = (currencyCode ?? "usd") as "usd" | "eur";
-    const roundedNonCash = Math.round(cv * (1 + pct / 100) + addSvc);
-    const sellStr = currencyRates?.[code]?.sell ?? "";
-    const rate = Number.parseFloat(sellStr.replace(",", ".")) || 0;
-    const priceWithVatUahRaw = roundedNonCash * rate;
-    const priceWithVatRounded = Math.round(priceWithVatUahRaw);
-    const vatUah = priceWithVatRounded * 0.2;
-    const priceWithoutVatUah = priceWithVatRounded - vatUah;
-    const withVat = rate > 0 && roundedNonCash > 0 ? priceWithVatRounded.toFixed(2) : "";
-    const withoutVat =
-      rate > 0 && roundedNonCash > 0 ? priceWithoutVatUah.toFixed(2) : "";
-    const vatVal = rate > 0 && roundedNonCash > 0 ? vatUah.toFixed(2) : "";
-    form.setValue("price_with_vat", withVat, { shouldValidate: false });
-    form.setValue("price_without_vat", withoutVat, { shouldValidate: false });
-    form.setValue("vat", vatVal, { shouldValidate: false });
+    const calc = computeProposalCalculatorUahFields(
+      {
+        cost_mode: "calculator",
+        currency_value: currencyValue,
+        percent_base: percentBase,
+        additional_services: additionalServices,
+        currency_code: currencyCode,
+      },
+      currencyRates
+    );
+    form.setValue("price_with_vat", calc.priceWithVat, { shouldValidate: false });
+    form.setValue("price_without_vat", calc.priceWithoutVat, { shouldValidate: false });
+    form.setValue("vat", calc.vat, { shouldValidate: false });
   }, [
     costMode,
     currencyValue,
@@ -343,6 +373,7 @@ export function ProposalForm() {
     additionalServices,
     currencyCode,
     currencyRates,
+    form,
   ]);
 
   const openPreview = () => {
@@ -363,17 +394,20 @@ export function ProposalForm() {
 
   return (
     <>
-      <div className="flex flex-col gap-3 mb-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          {last5.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground">Заповнити з останнього:</span>
+      <HistoryActionBar
+        leading={
+          last5.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                Заповнити з останнього:
+              </span>
               {last5.map((entry, i) => (
                 <Button
                   key={entry.id}
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="h-9 min-w-9 px-3"
                   onClick={() => {
                     form.reset(mergeFormData(entry));
                     if (entry.photoDataUrls?.length) {
@@ -392,28 +426,49 @@ export function ProposalForm() {
                 </Button>
               ))}
             </div>
-          )}
-          <Button type="button" variant="outline" size="sm" onClick={openHistory}>
+          ) : null
+        }
+        trailing={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={openHistory}
+          >
             Історія генерацій
           </Button>
-        </div>
-      </div>
+        }
+      />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium tracking-tight">
-                Основні дані ТЗ
+                Основні характеристики
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="model"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0 sm:col-span-2 lg:col-span-3">
                       <FormLabel>Марка / Модель</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="body_type"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0">
+                      <FormLabel>Тип кузова</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -425,7 +480,7 @@ export function ProposalForm() {
                   control={form.control}
                   name="vin"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>VIN</FormLabel>
                       <FormControl>
                         <Input {...field} />
@@ -438,7 +493,7 @@ export function ProposalForm() {
                   control={form.control}
                   name="year"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>Рік (р.)</FormLabel>
                       <FormControl>
                         <Input type="number" min={1900} max={2100} {...field} />
@@ -447,13 +502,11 @@ export function ProposalForm() {
                     </FormItem>
                   )}
                 />
-              </div>
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <FormField
                   control={form.control}
                   name="mileage"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>Пробіг (км)</FormLabel>
                       <FormControl>
                         <Input type="number" min={0} {...field} />
@@ -464,22 +517,9 @@ export function ProposalForm() {
                 />
                 <FormField
                   control={form.control}
-                  name="country"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Виробник</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="color"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>Колір</FormLabel>
                       <FormControl>
                         <Input {...field} />
@@ -490,10 +530,10 @@ export function ProposalForm() {
                 />
                 <FormField
                   control={form.control}
-                  name="technical_state"
+                  name="country"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Технічний стан</FormLabel>
+                    <FormItem className="min-w-0">
+                      <FormLabel>Виробник</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -508,104 +548,138 @@ export function ProposalForm() {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium tracking-tight">
-                Кузов і ходова частина
+                Технічні характеристики
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+            <CardContent className="flex flex-col gap-4">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                <FormField
+                  control={form.control}
+                  name="wheel_formula"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0">
+                      <FormLabel>Колісна формула</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full min-w-0">
+                            <SelectValue placeholder="Оберіть формулу" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {WHEEL_FORMULA_OPTIONS.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="engine_type"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0">
+                      <FormLabel>Тип двигуна</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full min-w-0">
+                            <SelectValue placeholder="Оберіть тип" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {ENGINE_TYPE_OPTIONS.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="engine_volume"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0">
+                      <FormLabel>Об&apos;єм двигуна (л)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} step="0.1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="power"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0">
+                      <FormLabel>Потужність (кВт)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} step="0.1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gearbox"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0">
+                      <FormLabel>КПП</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full min-w-0">
+                            <SelectValue placeholder="Оберіть КПП" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {GEARBOX_OPTIONS.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="seats"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0">
+                      <FormLabel>Кількість місць (шт.)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
                 control={form.control}
-                name="body_type"
+                name="technical_state"
                 render={({ field }) => (
-                  <FormItem className="min-w-0">
-                    <FormLabel>Тип кузова</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="wheel_formula"
-                render={({ field }) => (
-                  <FormItem className="min-w-0">
-                    <FormLabel>Колісна формула</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="seats"
-                render={({ field }) => (
-                  <FormItem className="min-w-0">
-                    <FormLabel>Кількість місць (шт.)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={1} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium tracking-tight">
-                Двигун і трансмісія
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              <FormField
-                control={form.control}
-                name="engine_type"
-                render={({ field }) => (
-                  <FormItem className="min-w-0">
-                    <FormLabel>Тип двигуна</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="engine_volume"
-                render={({ field }) => (
-                  <FormItem className="min-w-0">
-                    <FormLabel>Об&apos;єм двигуна (л)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="power"
-                render={({ field }) => (
-                  <FormItem className="min-w-0">
-                    <FormLabel>Потужність (кВт)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} step="0.1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="gearbox"
-                render={({ field }) => (
-                  <FormItem className="min-w-0">
-                    <FormLabel>КПП</FormLabel>
+                  <FormItem>
+                    <FormLabel>Технічний стан</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -840,12 +914,12 @@ export function ProposalForm() {
                   <FormItem className="min-w-0 shrink-0 flex flex-col">
                     <FormLabel className="whitespace-nowrap">Валюта</FormLabel>
                     <FormControl>
-                      <div className="flex min-h-8 items-center">
+                      <div className="flex min-h-9 items-center">
                         <Select
                           value={field.value}
                           onValueChange={(v) => field.onChange(v as "usd" | "eur")}
                         >
-                          <SelectTrigger className="h-8 w-full min-w-20 py-1 px-2.5 pr-8">
+                          <SelectTrigger className="w-full min-w-20 px-2.5 pr-8">
                             <SelectValue placeholder="Валюта" />
                           </SelectTrigger>
                           <SelectContent>
@@ -952,6 +1026,196 @@ export function ProposalForm() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium tracking-tight">
+              Примітка про курс у КП
+            </CardTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8 shrink-0"
+              title="Скинути до заводських"
+              aria-label="Скинути до заводських"
+              onClick={() =>
+                form.setValue("rate_disclaimer_text", getDefaultRateDisclaimerText(), {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="rate_disclaimer_text"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-muted-foreground font-normal">
+                    Текст під блоком «Вартість та умови» (абзаци з нового рядка)
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      className="min-h-[120px] text-sm"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium tracking-tight">
+              Інформація про постачальника (у КП)
+            </CardTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8 shrink-0"
+              title="Скинути до заводських"
+              aria-label="Скинути дані постачальника до заводських"
+              onClick={() => {
+                const s = getDefaultSupplierFormValues();
+                (Object.entries(s) as [keyof typeof s, string][]).forEach(([key, value]) => {
+                  form.setValue(key, value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                });
+              }}
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="supplier_company"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Найменування (юридичне)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="supplier_edrpou"
+              render={({ field }) => (
+                <FormItem className="sm:max-w-xs">
+                  <FormLabel>ЄДРПОУ</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              Адреса в КП: перший рядок — індекс, область і місто (лише заповнені); другий —
+              вулиця та будинок. Усі поля нижче опційні; якщо всі порожні — блок адреси в КП не
+              показується.
+            </p>
+            <FormField
+              control={form.control}
+              name="supplier_postal_code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Індекс</FormLabel>
+                  <FormControl>
+                    <Input placeholder="напр. 07400" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="supplier_region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Область / регіон</FormLabel>
+                  <FormControl>
+                    <Input placeholder="напр. Київська обл." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="supplier_city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Місто / населений пункт</FormLabel>
+                  <FormControl>
+                    <Input placeholder="напр. Бровари (без «м.», додамо автоматично)" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="supplier_street"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Вулиця, будинок, офіс</FormLabel>
+                  <FormControl>
+                    <Input placeholder="напр. вул. Січових Стрільців, буд. 11" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="sm:col-span-2 border-t border-border pt-4 mt-1 space-y-3">
+              <p className="text-sm font-medium">Контактна інформація (у КП)</p>
+              <p className="text-xs text-muted-foreground">
+                До двох телефонів. Якщо обидва порожні — блок контактів у комерційній не відображається.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="supplier_phone_primary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Телефон 1</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="+38 0XX XXX XX XX" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="supplier_phone_secondary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Телефон 2</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="+38 0XX XXX XX XX" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="flex flex-wrap gap-2 items-center">
           <Button
             type="button"
@@ -972,7 +1236,7 @@ export function ProposalForm() {
             {loading ? "Генеруємо PDF..." : "Згенерувати PDF"}
           </Button>
           {success && (
-            <Card className="h-8 min-w-0 flex items-center justify-center py-0 rounded-lg border border-border bg-green-500/5 ring-0 shadow-none">
+            <Card className="h-9 min-w-0 flex items-center justify-center py-0 rounded-lg border border-border bg-green-500/5 ring-0 shadow-none">
               <CardContent className="py-0 px-2.5 flex items-center justify-center gap-2">
                 <p className="text-sm font-medium text-green-700 dark:text-green-400 text-center">
                   {success === "downloaded"

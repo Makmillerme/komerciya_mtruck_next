@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { FileText, Receipt, Calculator } from "lucide-react";
+import { FileText, Calculator } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "КП", icon: FileText },
-  { href: "/invoices", label: "Рахунки", icon: Receipt },
   { href: "/kmp", label: "КМП", icon: Calculator },
 ] as const;
 

@@ -1,0 +1,5 @@
+**Висота контролів:** `components/ui/input.tsx` — дефолт `h-9`, `py-1.5`, `file:h-7`. `components/ui/select.tsx` — `SelectTrigger` `data-[size=default]:h-9`, `py-0` (разом із `items-center`). Прибрано точкові `h-9`/`h-8` з `KMPCalculator.tsx` та `ProposalForm.tsx` де дублювали глобальні стилі; у ProposalForm ряд специфікацій — `min-h-9`, тригер валюти без окремого h-8, зелений Card `h-9`.
+
+**Select історії КП + пошук:** на `<Select value={historyPick}>` додано `highlightItemOnHover={false}` — у Base UI `SelectPopup` при `highlightItemOnHover` і `onPointerLeave` викликається `popup.focus()`, що знімало фокус з поля пошуку при русі миші. На `SelectContent` — `alignItemWithTrigger={false}` щоб не тягнути `height:100%` на попап (коректніший розмір вікна списку). Пошук у `header` без окремого `h-8` — наслідує `h-9` з Input.
+
+Збірка: `npm run build` OK.

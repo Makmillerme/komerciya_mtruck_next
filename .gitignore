@@ -49,3 +49,4 @@ next-env.d.ts
 # persisted proposal history (JSON)
 /data/history/
 data/proposal-history.json
+data/kmp-history.json

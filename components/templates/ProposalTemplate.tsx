@@ -9,7 +9,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { FormattedProposalData } from "@/lib/format-proposal-data";
-import { formatRateDisclaimerDate, getRateDisclaimerLines } from "@/lib/rate-disclaimer";
+
 import { getMainSpecItems, getTechSpecItems } from "@/lib/proposal-specs";
 import { DocumentPreview, DocumentPageWithLabel } from "@/components/ui/document-preview";
 
@@ -69,7 +69,7 @@ export function ProposalTemplate({
               КОМЕРЦІЙНА ПРОПОЗИЦІЯ
             </h1>
             <p className="text-base opacity-90 font-medium tracking-wide">
-              Автомобільний транспорт
+              {data.model || "—"}
             </p>
           </header>
           <div className="flex-1 overflow-hidden px-3 py-2">
@@ -80,10 +80,6 @@ export function ProposalTemplate({
                 borderLeft: "4px solid " + NAVY,
               }}
             >
-              <h2 className="text-lg font-bold mb-1.5 tracking-tight"
-                style={{ color: NAVY }}>
-                {data.model || "—"}
-              </h2>
               <p className="text-sm text-[#666] font-medium mb-3">
                 Вантажний автомобіль для комерційного використання
               </p>
@@ -105,6 +101,14 @@ export function ProposalTemplate({
                     Технічні характеристики
                   </h3>
                   <SpecList items={getTechSpecItems(data)} />
+                </div>
+              </div>
+              <div className="mt-3 bg-white rounded-xl border border-[#e5e7eb] px-3 py-2.5 shadow-sm">
+                <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-[11px] sm:flex-nowrap sm:items-start">
+                  <span className="text-[#555] font-medium shrink-0">Технічний стан:</span>
+                  <span className="font-semibold text-[#1f2937] text-right sm:flex-1 sm:min-w-0">
+                    {data.technical_state || "—"}
+                  </span>
                 </div>
               </div>
             </section>
@@ -149,13 +153,15 @@ export function ProposalTemplate({
                   <div className="text-xs font-bold mt-1">{data.price_with_vat || "—"}</div>
                 </div>
               </div>
-              <div className="text-[10px] opacity-90 mt-3 text-left leading-snug space-y-1.5 px-0.5">
-                {getRateDisclaimerLines(formatRateDisclaimerDate()).map((line, i) => (
-                  <p key={i} className="mb-0 last:mb-0">
-                    {line}
-                  </p>
-                ))}
-              </div>
+              {data.show_currency_non_cash ? (
+                <div className="text-[10px] opacity-90 mt-3 text-left leading-snug space-y-1.5 px-0.5">
+                  {data.rate_disclaimer_lines.map((line, i) => (
+                    <p key={i} className="mb-0 last:mb-0">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
             </section>
             <div
               className="border rounded-xl overflow-hidden shadow-sm my-3"
@@ -195,7 +201,11 @@ export function ProposalTemplate({
               <h3 className="text-[13px] font-semibold mb-2 text-center" style={{ color: NAVY }}>
                 Інформація про постачальника
               </h3>
-              <div className="grid grid-cols-2 gap-3 items-center justify-items-center">
+              <div
+                className={`grid gap-3 items-start justify-items-center ${
+                  data.supplier_show_address ? "grid-cols-2" : "grid-cols-1"
+                }`}
+              >
                 <div className="flex items-center gap-2 text-[11px] text-center">
                   <div
                     className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0"
@@ -204,25 +214,45 @@ export function ProposalTemplate({
                     <Building2 className="w-3.5 h-3.5" strokeWidth={2.5} />
                   </div>
                   <div>
-                    <strong>ПП &quot;БРЕЙН КОМПАНІ&quot;</strong>
+                    <strong>{data.supplier_company}</strong>
                     <br />
-                    ЄДРПОУ: 45373226
+                    ЄДРПОУ: {data.supplier_edrpou}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-center">
-                  <div
-                    className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0"
-                    style={{ background: NAVY }}
-                  >
-                    <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
+                {data.supplier_show_address ? (
+                  <div className="flex items-center gap-2 text-[11px] text-center">
+                    <div
+                      className="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0"
+                      style={{ background: NAVY }}
+                    >
+                      <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      {data.supplier_address_lines.map((line, i) => (
+                        <span key={i}>
+                          {line}
+                          {i < data.supplier_address_lines.length - 1 ? <br /> : null}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    07400, Київська обл., м. Бровари,
-                    <br />
-                    вул. Січових Стрільців, буд. 11
-                  </div>
-                </div>
+                ) : null}
               </div>
+              {data.supplier_show_contact ? (
+                <div className="mt-3 pt-3 border-t border-[#e5e7eb] text-[11px] text-center w-full">
+                  <p className="font-semibold mb-2" style={{ color: NAVY }}>
+                    Контактна інформація
+                  </p>
+                  <div className="flex flex-col items-center gap-1.5 text-[#333]">
+                    {data.supplier_contact_phones.map((tel, i) => (
+                      <div key={i} className="flex items-center gap-2 justify-center">
+                        <Phone className="w-3.5 h-3.5 shrink-0" style={{ color: NAVY }} />
+                        <span>{tel}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </section>
           </div>
           <footer

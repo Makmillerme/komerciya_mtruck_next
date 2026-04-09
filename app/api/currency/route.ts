@@ -58,7 +58,7 @@ export async function GET() {
         "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600",
       },
     });
-  } catch (e) {
+  } catch {
     if (cached) return NextResponse.json(cached);
     return NextResponse.json(
       { error: "Помилка завантаження", usd: { buy: "—", sell: "—" }, eur: { buy: "—", sell: "—" }, updatedAt: "" },

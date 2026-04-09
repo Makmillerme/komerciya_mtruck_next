@@ -34,7 +34,7 @@ export function dataUrlToFile(dataUrl: string, filename: string): File {
 /** Історія зберігається у файлі `data/proposal-history.json` на сервері (через API). */
 export async function fetchProposalHistory(): Promise<ProposalHistoryEntry[]> {
   try {
-    const r = await fetch(HISTORY_API, { cache: "no-store" });
+    const r = await fetch(HISTORY_API);
     if (!r.ok) return [];
     const data = (await r.json()) as unknown;
     return Array.isArray(data) ? (data as ProposalHistoryEntry[]) : [];

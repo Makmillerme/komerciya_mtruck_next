@@ -52,6 +52,7 @@ import {
   KmpCalculatorLivePanel,
   KmpDraftAutosave,
 } from "@/components/kmp/KmpCalculatorLiveBlocks";
+import { formatKmpUah0, formatKmpUah2 } from "@/lib/kmp-format-uah";
 
 type CurrencyApi = CurrencyRatesSnapshot & { updatedAt?: string };
 
@@ -59,22 +60,8 @@ function clampPercent0to100(p: number): number {
   return Math.min(100, Math.max(0, p));
 }
 
-function formatUah(n: number) {
-  return new Intl.NumberFormat("uk-UA", {
-    style: "currency",
-    currency: "UAH",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function formatUah2(n: number) {
-  return new Intl.NumberFormat("uk-UA", {
-    style: "currency",
-    currency: "UAH",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
+const formatUah = formatKmpUah0;
+const formatUah2 = formatKmpUah2;
 
 function historyCompactLabel(entry: ProposalHistoryEntry): string {
   const m = entry.formData.model?.trim() || "—";

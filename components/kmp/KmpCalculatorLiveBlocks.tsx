@@ -65,21 +65,32 @@ export function KmpDraftAutosave({
 }) {
   useEffect(() => {
     let timeoutId: number | undefined;
+
+    const flushDraft = () => {
+      if (!readyRef.current) return;
+      try {
+        const draft: KmpDraftV1 = {
+          v: 1,
+          values: form.getValues(),
+          historyPick,
+        };
+        writeKmpDraft(draft);
+      } catch {
+        /* */
+      }
+    };
+
     const schedule = () => {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(() => {
-        if (!readyRef.current) return;
-        try {
-          const draft: KmpDraftV1 = {
-            v: 1,
-            values: form.getValues(),
-            historyPick,
-          };
-          writeKmpDraft(draft);
-        } catch {
-          /* */
-        }
-      }, 400);
+      timeoutId = window.setTimeout(flushDraft, 400);
+    };
+
+    const flushNow = () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+      flushDraft();
     };
 
     const sub = form.watch(() => {
@@ -87,11 +98,30 @@ export function KmpDraftAutosave({
       schedule();
     });
 
+    window.addEventListener("pagehide", flushNow);
+    window.addEventListener("beforeunload", flushNow);
+
     return () => {
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       sub.unsubscribe();
+      window.removeEventListener("pagehide", flushNow);
+      window.removeEventListener("beforeunload", flushNow);
     };
   }, [form, historyPick, readyRef]);
+
+  useEffect(() => {
+    if (!readyRef.current) return;
+    try {
+      writeKmpDraft({
+        v: 1,
+        values: form.getValues(),
+        historyPick,
+      });
+    } catch {
+      /* */
+    }
+  }, [form, historyPick, readyRef]);
+
   return null;
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -31,6 +32,39 @@ export type KmpChartRow = {
   Відсотки: number;
   Залишок: number;
 };
+
+/** Tailwind `h-48 w-48` = 12rem */
+const PIE_PX = 192;
+
+function KmpResponsiveChartBox({
+  children,
+}: {
+  children: (width: number, height: number) => ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const apply = () => {
+      const r = el.getBoundingClientRect();
+      const w = Math.floor(r.width);
+      const h = Math.floor(r.height);
+      if (w > 0 && h > 0) {
+        setSize((s) => (s?.w === w && s?.h === h ? s : { w, h }));
+      }
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="h-full w-full min-h-0 min-w-0">
+      {size ? children(size.w, size.h) : null}
+    </div>
+  );
+}
 
 function pieSegmentColor(segmentName: string): string {
   switch (segmentName) {
@@ -76,7 +110,7 @@ export function KmpPieStructureCard({
         <div className="flex min-w-0 flex-col items-stretch gap-8 md:flex-row md:items-center">
           <div className="mx-auto h-48 w-48 min-h-48 min-w-48 shrink-0 overflow-visible md:mx-0">
             {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width={PIE_PX} height={PIE_PX}>
                 <PieChart>
                   <Pie
                     isAnimationActive={false}
@@ -158,7 +192,9 @@ export function KmpBarLineChartGrid({
         </CardHeader>
         <CardContent className="h-[300px] w-full min-h-0">
           {chartRows.length ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <KmpResponsiveChartBox>
+              {(w, h) => (
+                <ResponsiveContainer width={w} height={h}>
               <BarChart data={chartRows} margin={{ left: 8, right: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
@@ -184,7 +220,9 @@ export function KmpBarLineChartGrid({
                   fill="oklch(0.809 0.105 251.813)"
                 />
               </BarChart>
-            </ResponsiveContainer>
+                </ResponsiveContainer>
+              )}
+            </KmpResponsiveChartBox>
           ) : (
             <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
               Заповніть коректні параметри — графік з&apos;явиться тут.
@@ -198,7 +236,9 @@ export function KmpBarLineChartGrid({
         </CardHeader>
         <CardContent className="h-[300px] w-full min-h-0">
           {chartRows.length ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <KmpResponsiveChartBox>
+              {(w, h) => (
+                <ResponsiveContainer width={w} height={h}>
               <LineChart data={chartRows} margin={{ left: 8, right: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
@@ -224,7 +264,9 @@ export function KmpBarLineChartGrid({
                   dot={false}
                 />
               </LineChart>
-            </ResponsiveContainer>
+                </ResponsiveContainer>
+              )}
+            </KmpResponsiveChartBox>
           ) : (
             <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
               Заповніть коректні параметри — графік з&apos;явиться тут.

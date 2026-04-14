@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { HistoryActionBar } from "@/components/history/HistoryActionBar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getDefaultFinancingFormValues } from "@/lib/proposal-financing-defaults";
 import { getDefaultRateDisclaimerText } from "@/lib/rate-disclaimer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -149,6 +150,7 @@ export function ProposalForm() {
       seats: "",
       technical_state: "",
       rate_disclaimer_text: "",
+      ...getDefaultFinancingFormValues(),
       ...emptySupplierFormValues(),
       cost_mode: "calculator",
       currency_value: "",
@@ -225,11 +227,28 @@ export function ProposalForm() {
     const { supplier_address: _legacyAddr, ...fd } = rawFd;
     void _legacyAddr;
     const supplierFm = mergeSupplierFormFieldsForHistory(rawFd);
+    const finDef = getDefaultFinancingFormValues();
     return {
       ...defaultCostFields,
       ...fd,
       rate_disclaimer_text:
         typeof fd.rate_disclaimer_text === "string" ? fd.rate_disclaimer_text : "",
+      financing_block_title:
+        typeof fd.financing_block_title === "string"
+          ? fd.financing_block_title
+          : finDef.financing_block_title,
+      financing_block_phone:
+        typeof fd.financing_block_phone === "string"
+          ? fd.financing_block_phone
+          : finDef.financing_block_phone,
+      financing_block_messenger:
+        typeof fd.financing_block_messenger === "string"
+          ? fd.financing_block_messenger
+          : finDef.financing_block_messenger,
+      financing_block_cta:
+        typeof fd.financing_block_cta === "string"
+          ? fd.financing_block_cta
+          : finDef.financing_block_cta,
       ...supplierFm,
       wheel_formula: coerceWheelFormula(
         typeof fd.wheel_formula === "string" ? fd.wheel_formula : undefined
@@ -1268,6 +1287,87 @@ export function ProposalForm() {
                 />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium tracking-tight">
+              Блок «Фінансування / консультація» (у КП)
+            </CardTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8 shrink-0"
+              title="Скинути до заводських"
+              aria-label="Скинути тексти блоку фінансування до заводських"
+              onClick={() => {
+                const f = getDefaultFinancingFormValues();
+                (Object.entries(f) as [keyof typeof f, string][]).forEach(([key, value]) => {
+                  form.setValue(key, value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                });
+              }}
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="financing_block_title"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Заголовок</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="financing_block_phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Телефон (рядок з іконкою)</FormLabel>
+                  <FormControl>
+                    <Input type="tel" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="financing_block_messenger"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Месенджер / контакт (рядок з іконкою)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="financing_block_cta"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Заклик під контактами</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 

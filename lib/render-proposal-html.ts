@@ -190,12 +190,12 @@ export function renderProposalHtml({
       <div class="border border-[#1D304E] rounded-xl overflow-hidden shadow-sm my-3">
         <div class="flex items-center gap-4 p-3">
           <div class="flex-1">
-            <div class="text-[13px] font-bold text-[#1D304E] mb-1.5">Фінансування авто | Кредит | Лізинг</div>
+            <div class="text-[13px] font-bold text-[#1D304E] mb-1.5">${esc(d.financing_title || "—")}</div>
             <div class="flex flex-col gap-1.5 text-sm text-[#333]">
-              <div class="flex items-center gap-2"><span>📞</span><span>+38 050 231 13 39</span></div>
-              <div class="flex items-center gap-2"><span>✉</span><span>M-Truck_finans</span></div>
+              <div class="flex items-center gap-2"><span>📞</span><span>${esc(d.financing_phone || "—")}</span></div>
+              <div class="flex items-center gap-2"><span>✉</span><span>${esc(d.financing_messenger || "—")}</span></div>
             </div>
-            <p class="text-[11px] text-[#1D304E] font-medium mt-2">Отримати консультацію - Перейди за QR-кодом →</p>
+            <p class="text-[11px] text-[#1D304E] font-medium mt-2">${esc(d.financing_cta || "—")}</p>
           </div>
           <div class="w-[110px] h-[110px] rounded-xl border border-[#e5e7eb] overflow-hidden shrink-0 flex items-center justify-center bg-[#f8f9fa]">
             <img src="${img("img/qr/qrcode.webp")}" alt="QR-код для консультації" class="w-full h-full object-contain">

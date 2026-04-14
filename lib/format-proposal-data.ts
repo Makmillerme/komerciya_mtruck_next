@@ -1,5 +1,6 @@
 import { addUnitIfNeeded, formatNumberWithSpaces } from "./pdf-utils";
 import { parseRateDisclaimerLines } from "./rate-disclaimer";
+import { getDefaultFinancingFormValues } from "./proposal-financing-defaults";
 import { resolveSupplierForProposal } from "./proposal-supplier-defaults";
 import type { ProposalFormData } from "./schema";
 
@@ -32,6 +33,10 @@ export interface FormattedProposalData {
   supplier_contact_phones: string[];
   supplier_show_address: boolean;
   supplier_show_contact: boolean;
+  financing_title: string;
+  financing_phone: string;
+  financing_messenger: string;
+  financing_cta: string;
 }
 
 export function formatProposalData(data: Partial<ProposalFormData>): FormattedProposalData {
@@ -85,6 +90,16 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
   }
 
   const supplier = resolveSupplierForProposal(data);
+  const finDef = getDefaultFinancingFormValues();
+  const financing_title =
+    (data.financing_block_title ?? "").trim() || finDef.financing_block_title;
+  const financing_phone =
+    (data.financing_block_phone ?? "").trim() || finDef.financing_block_phone;
+  const financing_messenger =
+    (data.financing_block_messenger ?? "").trim() ||
+    finDef.financing_block_messenger;
+  const financing_cta =
+    (data.financing_block_cta ?? "").trim() || finDef.financing_block_cta;
 
   let currencyNonCash = "";
   if (showCurrencyNonCash) {
@@ -140,5 +155,9 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
     supplier_contact_phones: supplier.supplier_contact_phones,
     supplier_show_address: supplier.supplier_show_address,
     supplier_show_contact: supplier.supplier_show_contact,
+    financing_title,
+    financing_phone,
+    financing_messenger,
+    financing_cta,
   };
 }

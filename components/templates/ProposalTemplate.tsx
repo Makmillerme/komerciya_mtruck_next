@@ -170,20 +170,20 @@ export function ProposalTemplate({
               <div className="flex items-center gap-4 p-3">
                 <div className="flex-1">
                   <div className="text-[13px] font-bold mb-1.5" style={{ color: NAVY }}>
-                    Фінансування авто | Кредит | Лізинг
+                    {data.financing_title || "—"}
                   </div>
                   <div className="flex flex-col gap-1.5 text-sm text-[#333]">
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 shrink-0" style={{ color: NAVY }} />
-                      <span>+38 050 231 13 39</span>
+                      <span>{data.financing_phone || "—"}</span>
                     </div>
                   <div className="flex items-center gap-2">
                     <Send className="w-4 h-4 shrink-0" style={{ color: NAVY }} />
-                      <span>M-Truck_finans</span>
+                      <span>{data.financing_messenger || "—"}</span>
                     </div>
                   </div>
                   <p className="text-[11px] font-medium mt-2" style={{ color: NAVY }}>
-                    Отримати консультацію - Перейди за QR-кодом →
+                    {data.financing_cta || "—"}
                   </p>
                 </div>
                 <div

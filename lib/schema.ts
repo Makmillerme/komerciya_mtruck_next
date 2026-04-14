@@ -35,6 +35,11 @@ export const proposalSchema = z
   technical_state: requiredString,
   /** Примітка під блоком вартості в КП; порожньо — заводський текст з rate-disclaimer */
   rate_disclaimer_text: z.string(),
+  /** Блок «Фінансування / консультація» на стор. 2 КП (тексти; QR залишається статичним). */
+  financing_block_title: z.string(),
+  financing_block_phone: z.string(),
+  financing_block_messenger: z.string(),
+  financing_block_cta: z.string(),
   supplier_company: requiredString,
   supplier_edrpou: requiredString,
   /** Адреса постачальника: частини опційні; порожні не потрапляють у КП. */

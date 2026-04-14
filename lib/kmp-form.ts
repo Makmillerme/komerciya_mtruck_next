@@ -40,13 +40,6 @@ export const kmpFormSchema = z
         path: ["downPaymentPercent"],
       });
     }
-    if (data.residualPercent < 0 || data.residualPercent > 100) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Залишок 0–100%",
-        path: ["residualPercent"],
-      });
-    }
     if (data.feePercent < 0 || data.feePercent > 100) {
       ctx.addIssue({
         code: "custom",
@@ -70,21 +63,20 @@ export const kmpFormSchema = z
       });
     }
     const advanceSum = round2(Math.max(0, data.downPaymentSum));
-    const residualSum = round2(Math.max(0, data.residualSum));
-    if (advanceSum + residualSum >= price - 0.005) {
+    if (advanceSum >= price - 0.005) {
       ctx.addIssue({
         code: "custom",
-        message: "Аванс + залишок мають бути менші за вартість",
+        message: "Аванс має бути менший за вартість ТЗ",
         path: ["downPaymentSum"],
       });
     }
-    const creditBody = round2(price - advanceSum - residualSum);
+    const creditBody = round2(price - advanceSum);
     if (creditBody <= 0) {
       ctx.addIssue({
         code: "custom",
         message:
-          "Сума до амортизації (після авансу та залишку) має бути додатною",
-        path: ["residualSum"],
+          "Сума фінансування (ціна мінус аванс) має бути додатною",
+        path: ["downPaymentSum"],
       });
     }
   });

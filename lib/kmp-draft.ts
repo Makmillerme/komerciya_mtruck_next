@@ -1,4 +1,5 @@
-import type { KmpFormValues } from "@/lib/kmp-form";
+import { kmpFormEmptyValues, type KmpFormValues } from "@/lib/kmp-form";
+import { KMP_PROPOSAL_HISTORY_NONE } from "@/lib/kmp-history-constants";
 
 export const KMP_DRAFT_STORAGE_KEY = "kmp-draft-v1";
 
@@ -13,13 +14,23 @@ export function readKmpDraft(): KmpDraftV1 | null {
   try {
     const raw = window.localStorage.getItem(KMP_DRAFT_STORAGE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as KmpDraftV1;
-    if (data?.v !== 1 || !data.values || typeof data.historyPick !== "string")
+    const data = JSON.parse(raw) as Partial<KmpDraftV1>;
+    if (data?.v !== 1 || !data.values || typeof data.values !== "object") {
       return null;
+    }
+    const historyPick =
+      typeof data.historyPick === "string"
+        ? data.historyPick
+        : KMP_PROPOSAL_HISTORY_NONE;
     return {
       v: 1,
-      values: data.values,
-      historyPick: data.historyPick,
+      values: {
+        ...kmpFormEmptyValues(),
+        ...data.values,
+        residualSum: 0,
+        residualPercent: 0,
+      },
+      historyPick,
     };
   } catch {
     return null;

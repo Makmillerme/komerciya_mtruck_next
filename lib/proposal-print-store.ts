@@ -1,10 +1,14 @@
 /**
  * Файлове сховище даних для сторінки /proposal-print.
- * TTL ~1 хв. Playwright завантажує сторінку, Chromium рендерить HTML→PDF.
+ * Життєвий цикл: запис перед рендером PDF → читання Playwright → видалення після успіху або помилки в /api/generate.
+ * Файли старші за `MAX_PRINT_DATA_AGE_MS` при `get` вважаються застарілими і видаляються (захист від сиріт після збою).
  */
 
 import path from "path";
 import fs from "fs/promises";
+
+/** Максимальний вік JSON на диску; після цього `getProposalPrintData` повертає undefined і видаляє файл. */
+export const MAX_PRINT_DATA_AGE_MS = 15 * 60 * 1000;
 
 export interface ProposalPrintData {
   formData: Record<string, string>;
@@ -35,8 +39,16 @@ export async function getProposalPrintData(
   id: string
 ): Promise<ProposalPrintData | undefined> {
   if (!safeId(id)) return undefined;
+  const fp = filePath(id);
   try {
-    const content = await fs.readFile(filePath(id), "utf-8");
+    const stat = await fs.stat(fp);
+    if (Date.now() - stat.mtimeMs > MAX_PRINT_DATA_AGE_MS) {
+      await fs.unlink(fp).catch(() => {
+        /* ignore */
+      });
+      return undefined;
+    }
+    const content = await fs.readFile(fp, "utf-8");
     return JSON.parse(content) as ProposalPrintData;
   } catch {
     return undefined;

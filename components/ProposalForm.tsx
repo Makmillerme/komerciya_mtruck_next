@@ -15,7 +15,10 @@ import { Button } from "@/components/ui/button";
 import { HistoryActionBar } from "@/components/history/HistoryActionBar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getDefaultFinancingFormValues } from "@/lib/proposal-financing-defaults";
+import {
+  DEFAULT_FINANCING_BLOCK_QR_URL,
+  getDefaultFinancingFormValues,
+} from "@/lib/proposal-financing-defaults";
 import { getDefaultRateDisclaimerText } from "@/lib/rate-disclaimer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -185,6 +188,17 @@ export function ProposalForm() {
     name: "show_currency_non_cash",
   });
 
+  const financingQrUrlWatch = useWatch({
+    control: form.control,
+    name: "financing_block_qr_url",
+  });
+
+  const financingQrPreviewSrc = useMemo(() => {
+    const t = (financingQrUrlWatch ?? "").trim();
+    if (!t) return null;
+    return `/api/qr?url=${encodeURIComponent(t)}`;
+  }, [financingQrUrlWatch]);
+
   const PHOTO_COUNT_REQUIRED = 8;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,6 +263,10 @@ export function ProposalForm() {
         typeof fd.financing_block_cta === "string"
           ? fd.financing_block_cta
           : finDef.financing_block_cta,
+      financing_block_qr_url:
+        typeof fd.financing_block_qr_url === "string"
+          ? fd.financing_block_qr_url
+          : finDef.financing_block_qr_url,
       ...supplierFm,
       wheel_formula: coerceWheelFormula(
         typeof fd.wheel_formula === "string" ? fd.wheel_formula : undefined
@@ -280,6 +298,8 @@ export function ProposalForm() {
         )
       );
     }
+    // Навмисно лише historyList + form: один раз при гідратації з історії.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once hydration
   }, [historyList, form]);
 
   const openHistory = () => {
@@ -1368,6 +1388,29 @@ export function ProposalForm() {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="financing_block_qr_url"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Посилання для QR-коду</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="url"
+                      inputMode="url"
+                      autoComplete="url"
+                      placeholder={DEFAULT_FINANCING_BLOCK_QR_URL}
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    За замовчуванням — канал Telegram; залиште порожнім, щоб
+                    використати статичний QR з каталогу (резерв).
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -1464,6 +1507,7 @@ export function ProposalForm() {
                     imageUrls={previewPhotoUrls}
                     baseUrl="/"
                     templateId="commercial"
+                    financingQrSrc={financingQrPreviewSrc}
                   />
                 </div>
               )}

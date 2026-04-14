@@ -11,7 +11,9 @@ import {
 import type { FormattedProposalData } from "@/lib/format-proposal-data";
 
 import { getMainSpecItems, getTechSpecItems } from "@/lib/proposal-specs";
+import { PROPOSAL_BRAND_NAVY_HEX } from "@/lib/proposal-template-constants";
 import { DocumentPreview, DocumentPageWithLabel } from "@/components/ui/document-preview";
+import { FinancingQrImage } from "@/components/proposal/FinancingQrImage";
 
 export interface ProposalTemplateProps {
   data: FormattedProposalData;
@@ -23,9 +25,11 @@ export interface ProposalTemplateProps {
   templateId?: string;
   /** Режим для screenshot/PDF — без міток «Сторінка N» */
   printMode?: boolean;
+  /** `data:image/...` або абсолютний/відносний URL до згенерованого QR; без пропа — статичний img/qr/qrcode.webp */
+  financingQrSrc?: string | null;
 }
 
-const NAVY = "#1D304E";
+const NAVY = PROPOSAL_BRAND_NAVY_HEX;
 
 const IconBox = ({
   children,
@@ -48,6 +52,7 @@ export function ProposalTemplate({
   baseUrl = "",
   templateId = "commercial",
   printMode = false,
+  financingQrSrc = null,
 }: ProposalTemplateProps) {
   /** baseUrl="" → відносні шляхи (PDF). baseUrl="/" → абсолютні (веб). */
   const img = (path: string) => (baseUrl ? `${baseUrl.replace(/\/$/, "")}/${path}` : path);
@@ -186,13 +191,13 @@ export function ProposalTemplate({
                     {data.financing_cta || "—"}
                   </p>
                 </div>
-                <div
-                  className="w-[110px] h-[110px] rounded-xl border border-[#e5e7eb] overflow-hidden shrink-0 flex items-center justify-center bg-[#f8f9fa]"
-                >
-                  <img
-                    src={img("img/qr/qrcode.webp")}
+                <div className="box-border flex h-[102px] w-[102px] shrink-0 items-center justify-center rounded-xl border border-[#e5e7eb] bg-white p-2 shadow-sm">
+                  <FinancingQrImage
+                    key={financingQrSrc ?? "__static_qr__"}
+                    src={financingQrSrc}
+                    fallbackSrc={img("img/qr/qrcode.webp")}
                     alt="QR-код для консультації"
-                    className="w-full h-full object-contain"
+                    className="block max-h-full max-w-full object-contain"
                   />
                 </div>
               </div>

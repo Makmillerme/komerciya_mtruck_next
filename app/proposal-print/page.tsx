@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ProposalTemplate } from "@/components/templates/ProposalTemplate";
 import { formatProposalData } from "@/lib/format-proposal-data";
+import { financingQrToDataUrl } from "@/lib/financing-qr";
 import { getProposalPrintData } from "@/lib/proposal-print-store";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,9 @@ export default async function ProposalPrintPage({
   }
 
   const formatted = formatProposalData(data.formData);
+  const financingQrSrc = await financingQrToDataUrl(
+    data.formData.financing_block_qr_url
+  );
   const imageUrls = [...data.imageDataUrls];
   while (imageUrls.length < 8) imageUrls.push("");
 
@@ -40,6 +44,7 @@ export default async function ProposalPrintPage({
         imageUrls={imageUrls}
         baseUrl="/"
         printMode
+        financingQrSrc={financingQrSrc}
       />
     </div>
   );

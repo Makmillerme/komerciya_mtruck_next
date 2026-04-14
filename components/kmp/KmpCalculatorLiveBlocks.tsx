@@ -147,13 +147,17 @@ export function KmpCalculatorLivePanel({
 }) {
   const [watched, setWatched] = useState<KmpFormValues>(() => form.getValues());
 
-  /** Після `form.reset` у батьківському `KMPCalculator` (чернетка) порядок layout-ефектів може дати дитині `getValues` до reset; `formValuesSyncTick` оновлюється після reset — повторно синхронізуємо. `watch` у `useEffect` не гарантує подію на reset. */
+  /**
+   * Після `form.reset` у батьківському `KMPCalculator` оновлюємо знімок; `formValuesSyncTick` гарантує повтор після reset.
+   * `setWatched` лише в microtask — без синхронного setState в тілі ефекту (eslint react-hooks/set-state-in-effect).
+   */
   useLayoutEffect(() => {
-    setWatched(form.getValues());
+    queueMicrotask(() => {
+      setWatched(form.getValues());
+    });
   }, [form, formValuesSyncTick]);
 
   useEffect(() => {
-    setWatched(form.getValues());
     let timeoutId: number | undefined;
     const sub = form.watch(() => {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
@@ -336,7 +340,7 @@ export function KmpCalculatorLivePanel({
             description={
               parsed.showVatBreakdown
                 ? undefined
-                : "Діаграма у гривнях з ПДВ: аванс, тіло кредиту та залишкова вартість без окремого сегмента ПДВ; додано комісія та відсотки. Сума сегментів = вартість ТЗ + комісія + відсотки."
+                : "Діаграма у гривнях з ПДВ: аванс і тіло кредиту (сума фінансування) без окремого сегмента ПДВ; додано комісія та відсотки. Сума сегментів = вартість ТЗ + комісія + відсотки."
             }
           />
         </>
@@ -346,8 +350,8 @@ export function KmpCalculatorLivePanel({
         <CardHeader>
           <CardTitle className="text-base">Графік платежів</CardTitle>
           <CardDescription>
-            Дати та суми орієнтовні; останній рядок коригується до залишкової
-            вартості (як у прототипі).
+            Дати та суми орієнтовні; залишок боргу після кожного платежу (у кінці
+            строку ≈ 0 без балуну на кінець).
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -1,4 +1,5 @@
 import { formatProposalData } from "./format-proposal-data";
+import { PROPOSAL_BRAND_NAVY_HEX as NAVY } from "./proposal-template-constants";
 
 import type { ProposalFormData } from "./schema";
 
@@ -7,6 +8,8 @@ export interface RenderProposalOptions {
   imageDataUrls: string[];
   /** Для PDF: порожній (HTML у temp dir). Для веб: "/" */
   baseUrl?: string;
+  /** Згенерований QR (data URL); без нього — статичний webp */
+  financingQrSrc?: string | null;
 }
 
 function esc(s: string): string {
@@ -32,12 +35,18 @@ export function renderProposalHtml({
   formData,
   imageDataUrls,
   baseUrl = "",
+  financingQrSrc = null,
 }: RenderProposalOptions): string {
   const d = formatProposalData(formData);
   const urls = [...imageDataUrls];
   while (urls.length < 8) urls.push("");
 
   const img = (path: string) => (baseUrl ? `${baseUrl.replace(/\/$/, "")}/${path}` : path);
+
+  const financingQrImgSrc =
+    financingQrSrc && financingQrSrc.trim() !== ""
+      ? esc(financingQrSrc)
+      : img("img/qr/qrcode.webp");
 
   const walletIconSvg = `<svg class="w-4 h-4 opacity-90 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>`;
 
@@ -94,7 +103,7 @@ export function renderProposalHtml({
     .join("<br>");
   const supplierAddressColumn = d.supplier_show_address
     ? `<div class="flex items-center gap-2 text-[11px] text-center">
-            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: #1D304E">📍</div>
+            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: ${NAVY}">📍</div>
             <div>${supplierAddrHtml}</div>
           </div>`
     : "";
@@ -105,7 +114,7 @@ export function renderProposalHtml({
   const supplierGridStyle = `display:grid;grid-template-columns:repeat(${supplierColCount},minmax(0,1fr));gap:0.75rem;align-items:center;justify-items:center;width:100%`;
   const supplierPhoneColumn = d.supplier_show_contact
     ? `<div style="display:flex;align-items:center;gap:0.5rem;font-size:11px;text-align:center;min-width:0;justify-content:center">
-          <div style="width:24px;height:24px;border-radius:0.5rem;display:flex;align-items:center;justify-content:center;background:#1D304E;color:#fff;flex-shrink:0;font-size:12px;line-height:1" aria-hidden="true">☎</div>
+          <div style="width:24px;height:24px;border-radius:0.5rem;display:flex;align-items:center;justify-content:center;background:${NAVY};color:#fff;flex-shrink:0;font-size:12px;line-height:1" aria-hidden="true">☎</div>
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.125rem;color:#333;text-align:center">
             ${d.supplier_contact_phones
               .map((tel) => `<span style="word-break:break-word">${esc(tel)}</span>`)
@@ -127,24 +136,24 @@ export function renderProposalHtml({
   const body = `
 <div class="proposal-template w-full max-w-[210mm] mx-auto bg-white relative" style="font-family: Inter, system-ui, sans-serif" data-template-id="commercial">
   <div class="relative">
-  <header class="text-white text-center py-6 px-6" style="background: #1D304E">
+  <header class="text-white text-center py-6 px-6" style="background: ${NAVY}">
     <h1 class="text-2xl md:text-[28px] font-bold tracking-tight mb-1.5">КОМЕРЦІЙНА ПРОПОЗИЦІЯ</h1>
     <p class="text-base opacity-90 font-medium tracking-wide">${esc(d.model || "—")}</p>
   </header>
   <div class="px-3 py-2">
-    <section class="rounded-xl py-3 px-4 mb-3" style="background: #f8f9fa; border-left: 4px solid #1D304E">
+    <section class="rounded-xl py-3 px-4 mb-3" style="background: #f8f9fa; border-left: 4px solid ${NAVY}">
       <p class="text-sm text-[#666] font-medium mb-3">Вантажний автомобіль для комерційного використання</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div class="bg-white rounded-xl border border-[#e5e7eb] p-3 shadow-sm">
-          <h3 class="flex items-center gap-2.5 text-[#1D304E] text-[13px] font-semibold mb-2 pb-1.5 border-b border-[#e5e7eb]">
-            <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: #1D304E; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">⚙</span>
+          <h3 class="flex items-center gap-2.5 text-[${NAVY}] text-[13px] font-semibold mb-2 pb-1.5 border-b border-[#e5e7eb]">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: ${NAVY}; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">⚙</span>
             Основні характеристики
           </h3>
           <div class="space-y-1">${basicSpecs}</div>
         </div>
         <div class="bg-white rounded-xl border border-[#e5e7eb] p-3 shadow-sm">
-          <h3 class="flex items-center gap-2.5 text-[#1D304E] text-[13px] font-semibold mb-2 pb-1.5 border-b border-[#e5e7eb]">
-            <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: #1D304E; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">⚡</span>
+          <h3 class="flex items-center gap-2.5 text-[${NAVY}] text-[13px] font-semibold mb-2 pb-1.5 border-b border-[#e5e7eb]">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: ${NAVY}; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">⚡</span>
             Технічні характеристики
           </h3>
           <div class="space-y-1">${techSpecs}</div>
@@ -153,8 +162,8 @@ export function renderProposalHtml({
       ${technicalStateFullRow}
     </section>
     <section class="my-3">
-        <h3 class="flex items-center gap-2.5 text-[#1D304E] text-xs font-semibold mb-2">
-        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: #1D304E; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">📷</span>
+        <h3 class="flex items-center gap-2.5 text-[${NAVY}] text-xs font-semibold mb-2">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: ${NAVY}; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">📷</span>
         Фотографії автомобіля
       </h3>
       <div class="grid grid-cols-2 gap-2.5 max-w-full">${photos1_4}</div>
@@ -162,13 +171,13 @@ export function renderProposalHtml({
   </div>
     <div class="mt-8 pt-6 border-t border-[#e5e7eb] relative" style="page-break-before: always">
       <section class="my-3">
-        <h3 class="flex items-center gap-2.5 text-[#1D304E] text-xs font-semibold mb-2">
-        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: #1D304E; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">📷</span>
+        <h3 class="flex items-center gap-2.5 text-[${NAVY}] text-xs font-semibold mb-2">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: ${NAVY}; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">📷</span>
           Фотографії автомобіля
         </h3>
         <div class="grid grid-cols-2 gap-2.5 max-w-full">${photos5_8}</div>
       </section>
-      <section class="text-white rounded-xl py-5 px-5 my-3 text-center" style="background: #1D304E; min-height: 120px">
+      <section class="text-white rounded-xl py-5 px-5 my-3 text-center" style="background: ${NAVY}; min-height: 120px">
         <h3 class="flex items-center justify-center gap-2 text-[13px] font-semibold mb-3">${walletIconSvg} Вартість та умови</h3>
         <div class="grid gap-3 mt-2" style="display:grid;grid-template-columns:repeat(${gridCols},minmax(0,1fr));gap:0.75rem;margin-top:0.5rem">
           ${nonCashCell}
@@ -187,33 +196,33 @@ export function renderProposalHtml({
         </div>
         ${rateDisclaimerBlock}
       </section>
-      <div class="border border-[#1D304E] rounded-xl overflow-hidden shadow-sm my-3">
+      <div class="border border-[${NAVY}] rounded-xl overflow-hidden shadow-sm my-3">
         <div class="flex items-center gap-4 p-3">
           <div class="flex-1">
-            <div class="text-[13px] font-bold text-[#1D304E] mb-1.5">${esc(d.financing_title || "—")}</div>
+            <div class="text-[13px] font-bold text-[${NAVY}] mb-1.5">${esc(d.financing_title || "—")}</div>
             <div class="flex flex-col gap-1.5 text-sm text-[#333]">
               <div class="flex items-center gap-2"><span>📞</span><span>${esc(d.financing_phone || "—")}</span></div>
               <div class="flex items-center gap-2"><span>✉</span><span>${esc(d.financing_messenger || "—")}</span></div>
             </div>
-            <p class="text-[11px] text-[#1D304E] font-medium mt-2">${esc(d.financing_cta || "—")}</p>
+            <p class="text-[11px] text-[${NAVY}] font-medium mt-2">${esc(d.financing_cta || "—")}</p>
           </div>
-          <div class="w-[110px] h-[110px] rounded-xl border border-[#e5e7eb] overflow-hidden shrink-0 flex items-center justify-center bg-[#f8f9fa]">
-            <img src="${img("img/qr/qrcode.webp")}" alt="QR-код для консультації" class="w-full h-full object-contain">
+          <div style="flex-shrink:0;box-sizing:border-box;display:flex;align-items:center;justify-content:center;height:102px;width:102px;border-radius:0.75rem;border:1px solid #e5e7eb;background:#fff;padding:0.5rem;box-shadow:0 1px 2px rgba(0,0,0,0.06)">
+            <img src="${financingQrImgSrc}" alt="QR-код для консультації" style="display:block;max-width:100%;max-height:100%;object-fit:contain">
           </div>
         </div>
       </div>
       <section class="bg-[#f8f9fa] border border-[#e5e7eb] rounded-xl p-3 my-3">
-        <h3 class="text-[#1D304E] text-[13px] font-semibold mb-2 text-center">Інформація про постачальника</h3>
+        <h3 class="text-[${NAVY}] text-[13px] font-semibold mb-2 text-center">Інформація про постачальника</h3>
         <div style="${supplierGridStyle}">
           <div class="flex items-center gap-2 text-[11px] text-center">
-            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: #1D304E">🏢</div>
+            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: ${NAVY}">🏢</div>
             <div><strong>${d.supplier_company?.trim() ? esc(d.supplier_company) : "—"}</strong><br>ЄДРПОУ: ${d.supplier_edrpou?.trim() ? esc(d.supplier_edrpou) : "—"}</div>
           </div>
           ${supplierAddressColumn}
           ${supplierPhoneColumn}
         </div>
       </section>
-      <footer class="text-white py-2.5 px-3 text-center text-xs mt-3" style="background: #1D304E">
+      <footer class="text-white py-2.5 px-3 text-center text-xs mt-3" style="background: ${NAVY}">
         <div class="flex justify-center py-1">
           <img src="${img("img/logo/M-TRUCK logo iron.png")}" alt="M-TRUCK Logo" class="max-w-[100px] h-auto">
         </div>
@@ -308,8 +317,8 @@ body { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height
 .proposal-template .text-\\[13px\\] { font-size: 13px; }
 .proposal-template .text-\\[28px\\] { font-size: 28px; }
 .proposal-template .border-\\[#e5e7eb\\], .proposal-template .border-\\[#f1f3f4\\] { border-color: #e5e7eb; }
-.proposal-template .border-\\[#1D304E\\] { border-color: #1D304E; }
-.proposal-template .text-\\[#1D304E\\] { color: #1D304E; }
+.proposal-template .border-\\[${NAVY}\\] { border-color: ${NAVY}; }
+.proposal-template .text-\\[${NAVY}\\] { color: ${NAVY}; }
 .proposal-template .text-\\[#555\\] { color: #555; }
 .proposal-template .text-\\[#666\\] { color: #666; }
 .proposal-template .text-\\[#333\\] { color: #333; }

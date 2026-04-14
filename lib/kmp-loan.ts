@@ -1,6 +1,7 @@
 /**
  * Логіка графіка платежів узгоджена з циклом `calculate()` у прототипі index.html (GAS):
- * balance = price - advance; creditBody = price - advance - residual; корекція останнього рядка до residual.
+ * balance = price - advance; creditBody = price - advance - residual (у КМП residual = 0);
+ * разова комісія від бази фінансування (ціна − аванс); корекція останнього рядка до residual.
  */
 
 export type KmpPaymentMode = "annuity" | "differentiated";
@@ -12,7 +13,7 @@ export type KmpLoanScheduleRow = {
   payment: number;
   principal: number;
   interest: number;
-  /** Залишок після платежу (у кінці ≈ residualSum). */
+  /** Залишок боргу після платежу (у кінці ≈ residualSum, у КМП ≈ 0). */
   balanceAfter: number;
 };
 
@@ -21,12 +22,16 @@ export type KmpLoanInput = {
   price: number;
   /** Аванс, грн. */
   advanceSum: number;
-  /** Залишкова вартість (балун), грн. */
+  /**
+   * Балун на кінець строку (грн). У КМП завжди 0; поле залишено для сумісності з двигуном.
+   */
   residualSum: number;
   termMonths: number;
   /** Річна номінальна ставка, %. */
   annualRatePercent: number;
-  /** Разова комісія, % від price (не входить у щомісячні платежі). */
+  /**
+   * Разова комісія, % від бази фінансування (ціна − аванс), не входить у щомісячні платежі.
+   */
   feePercent: number;
   mode: KmpPaymentMode;
   /**
@@ -78,7 +83,8 @@ export function computeHtmlLoan(input: KmpLoanInput): KmpComputationResult | nul
   const creditBody = roundMoney(price - advanceSum - residualSum);
   if (creditBody <= 0) return null;
 
-  const oneTimeFee = roundMoney((price * feePercent) / 100);
+  const feeBase = roundMoney(Math.max(0, price - advanceSum));
+  const oneTimeFee = roundMoney((feeBase * feePercent) / 100);
 
   let balance = roundMoney(price - advanceSum);
   const cursor = input.scheduleStartDate

@@ -67,14 +67,14 @@ export function KmpPieStructureCard({
     description ??
     "Діаграма: аванс, тіло та залишок — частка без ПДВ (1/1.2 від відповідних сум), окремо ПДВ 20% від повної вартості ТЗ, комісія та відсотки. Сума сегментів = вартість ТЗ + комісія + відсотки.";
   return (
-    <Card className="min-w-0 overflow-hidden">
+    <Card className="min-w-0 overflow-visible">
       <CardHeader>
         <CardTitle>Структура виплат</CardTitle>
         <CardDescription>{desc}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex min-w-0 flex-col items-stretch gap-8 md:flex-row md:items-center">
-          <div className="mx-auto h-48 w-48 min-h-48 min-w-48 shrink-0 overflow-hidden md:mx-0">
+          <div className="mx-auto h-48 w-48 min-h-48 min-w-48 shrink-0 overflow-visible md:mx-0">
             {pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -97,6 +97,7 @@ export function KmpPieStructureCard({
                     ))}
                   </Pie>
                   <Tooltip
+                    allowEscapeViewBox={{ x: true, y: true }}
                     formatter={(v) => formatUah(Number(v ?? 0))}
                   />
                 </PieChart>

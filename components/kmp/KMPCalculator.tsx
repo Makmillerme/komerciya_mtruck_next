@@ -2,7 +2,7 @@
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormProvider, useForm, type Resolver } from "react-hook-form";
+import { FormProvider, useForm, useWatch, type Resolver } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -112,8 +112,6 @@ export function KMPCalculator() {
 
   const advPctRef = useRef<HTMLInputElement | null>(null);
   const advSumRef = useRef<HTMLInputElement | null>(null);
-  const resPctRef = useRef<HTMLInputElement | null>(null);
-  const resSumRef = useRef<HTMLInputElement | null>(null);
 
   const advPctReg = form.register("downPaymentPercent", {
     valueAsNumber: true,
@@ -137,26 +135,17 @@ export function KMPCalculator() {
       syncAdvanceFromSum(capped);
     },
   });
-  const resPctReg = form.register("residualPercent", {
-    valueAsNumber: true,
-    onChange(e: React.ChangeEvent<HTMLInputElement>) {
-      const t = e.target.value;
-      const raw = Number.parseFloat(t);
-      const p = t === "" ? 0 : Number.isFinite(raw) ? raw : 0;
-      form.setValue("residualPercent", p);
-      syncResidualFromPercent(p);
-    },
-  });
-  const resSumReg = form.register("residualSum", {
-    valueAsNumber: true,
-    onChange(e: React.ChangeEvent<HTMLInputElement>) {
-      const t = e.target.value;
-      const raw = Number.parseFloat(t);
-      const s = t === "" ? 0 : Number.isFinite(raw) ? raw : 0;
-      form.setValue("residualSum", s);
-      syncResidualFromSum(s);
-    },
-  });
+
+  const vehiclePriceW = useWatch({ control: form.control, name: "vehiclePriceUah" });
+  const downPaymentSumW = useWatch({ control: form.control, name: "downPaymentSum" });
+  const financingDisplay = useMemo(() => {
+    const price = Math.round(Number(vehiclePriceW ?? 0));
+    const advance = round2(Math.max(0, Number(downPaymentSumW ?? 0)));
+    const financingUah = round2(Math.max(0, price - advance));
+    const financingPct =
+      price > 0 ? round2((financingUah / price) * 100) : 0;
+    return { financingUah, financingPct };
+  }, [vehiclePriceW, downPaymentSumW]);
 
   const { data: rates = null } = useQuery({
     queryKey: queryKeys.currency,
@@ -205,7 +194,12 @@ export function KMPCalculator() {
   useLayoutEffect(() => {
     const d = readKmpDraft();
     if (d?.v === 1 && d.values) {
-      form.reset({ ...kmpFormEmptyValues(), ...d.values });
+      form.reset({
+        ...kmpFormEmptyValues(),
+        ...d.values,
+        residualSum: 0,
+        residualPercent: 0,
+      });
       if (d.values.mode) setModeValue(d.values.mode);
       setFormValuesSyncTick((n) => n + 1);
     }
@@ -238,7 +232,12 @@ export function KMPCalculator() {
           : "Завантаження…";
 
   const loadKmpHistoryEntry = (entry: KmpHistoryEntry) => {
-    const vals = { ...kmpFormEmptyValues(), ...entry.inputs };
+    const vals = {
+      ...kmpFormEmptyValues(),
+      ...entry.inputs,
+      residualSum: 0,
+      residualPercent: 0,
+    };
     form.reset(vals);
     setFormValuesSyncTick((n) => n + 1);
     setModeValue(vals.mode);
@@ -281,8 +280,8 @@ export function KMPCalculator() {
       form.setValue("vehiclePriceUah", p);
       const pct = form.getValues("downPaymentPercent");
       form.setValue("downPaymentSum", round2((p * Math.min(100, Math.max(0, pct))) / 100));
-      const rp = form.getValues("residualPercent");
-      form.setValue("residualSum", round2((p * Math.min(100, Math.max(0, rp))) / 100));
+      form.setValue("residualPercent", 0);
+      form.setValue("residualSum", 0);
     }
   };
 
@@ -292,16 +291,13 @@ export function KMPCalculator() {
       const advSum = round2((price * pct) / 100);
       form.setValue("downPaymentSum", advSum);
       setInputValue(advSumRef.current, advSum === 0 ? "" : String(advSum));
-
-      const rp = form.getValues("residualPercent");
-      const resSum = round2((price * rp) / 100);
-      form.setValue("residualSum", resSum);
-      setInputValue(resSumRef.current, resSum === 0 ? "" : String(resSum));
+      form.setValue("residualPercent", 0);
+      form.setValue("residualSum", 0);
     } else {
       form.setValue("downPaymentSum", 0);
       setInputValue(advSumRef.current, "");
+      form.setValue("residualPercent", 0);
       form.setValue("residualSum", 0);
-      setInputValue(resSumRef.current, "");
     }
   }, [form]);
 
@@ -309,6 +305,8 @@ export function KMPCalculator() {
     const price = Math.round(form.getValues("vehiclePriceUah"));
     const c = clampPercent0to100(pct);
     form.setValue("downPaymentPercent", c);
+    form.setValue("residualPercent", 0);
+    form.setValue("residualSum", 0);
     if (price > 0 && c > 0) {
       const s = round2((price * c) / 100);
       form.setValue("downPaymentSum", s);
@@ -324,6 +322,8 @@ export function KMPCalculator() {
     const raw = round2(Math.max(0, sum));
     const capped = price > 0 ? Math.min(raw, price) : raw;
     form.setValue("downPaymentSum", capped);
+    form.setValue("residualPercent", 0);
+    form.setValue("residualSum", 0);
     if (price > 0 && capped > 0) {
       const p = round2((capped / price) * 100);
       form.setValue("downPaymentPercent", p);
@@ -331,32 +331,6 @@ export function KMPCalculator() {
     } else {
       form.setValue("downPaymentPercent", 0);
       setInputValue(advPctRef.current, "");
-    }
-  }, [form]);
-
-  const syncResidualFromPercent = useCallback((pct: number) => {
-    const price = Math.round(form.getValues("vehiclePriceUah"));
-    form.setValue("residualPercent", pct);
-    if (price > 0 && pct > 0) {
-      const s = round2((price * pct) / 100);
-      form.setValue("residualSum", s);
-      setInputValue(resSumRef.current, String(s));
-    } else {
-      form.setValue("residualSum", 0);
-      setInputValue(resSumRef.current, "");
-    }
-  }, [form]);
-
-  const syncResidualFromSum = useCallback((sum: number) => {
-    const price = Math.round(form.getValues("vehiclePriceUah"));
-    form.setValue("residualSum", round2(Math.max(0, sum)));
-    if (price > 0 && sum > 0) {
-      const p = round2((sum / price) * 100);
-      form.setValue("residualPercent", p);
-      setInputValue(resPctRef.current, String(p));
-    } else {
-      form.setValue("residualPercent", 0);
-      setInputValue(resPctRef.current, "");
     }
   }, [form]);
 
@@ -384,8 +358,8 @@ export function KMPCalculator() {
                 <CardTitle>Параметри угоди</CardTitle>
                 <CardDescription>
                   Вкажіть ціну, аванс, строк і ставку — платежі та графік оновлюються
-                  автоматично. Режим: аннуїтет або рівні частки тіла (кредитне тіло =
-                  ціна мінус аванс і залишкова вартість).
+                  автоматично. Режим: аннуїтет або рівні частки тіла; кредитне тіло дорівнює
+                  сумі фінансування (ціна мінус аванс), без балуну на кінець строку.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -503,30 +477,17 @@ export function KMPCalculator() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="kmp-res-pct">Залишкова вартість, %</Label>
-                    <Input
-                      id="kmp-res-pct"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      defaultValue=""
-                      {...resPctReg}
-                      ref={(el) => { resPctReg.ref(el); resPctRef.current = el; }}
-                    />
+                    <Label>Сума фінансування, грн</Label>
+                    <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/40 px-3 py-1 text-sm tabular-nums">
+                      {formatUah2(financingDisplay.financingUah)}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="kmp-res-sum">Залишкова вартість, грн</Label>
-                    <Input
-                      id="kmp-res-sum"
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      defaultValue=""
-                      {...resSumReg}
-                      ref={(el) => { resSumReg.ref(el); resSumRef.current = el; }}
-                    />
+                    <Label>Сума фінансування, % від ціни</Label>
+                    <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/40 px-3 py-1 text-sm tabular-nums">
+                      {financingDisplay.financingPct.toFixed(2)}%
+                    </div>
                   </div>
                 </div>
 

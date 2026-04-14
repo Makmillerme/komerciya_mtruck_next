@@ -7,6 +7,7 @@ import {
 } from "@/lib/proposal-print-store";
 
 export async function POST(request: Request) {
+  let printId: string | undefined;
   try {
     const formData = await request.formData();
     const data: Record<string, string> = {};
@@ -26,7 +27,8 @@ export async function POST(request: Request) {
     }
     while (imageDataUrls.length < 8) imageDataUrls.push("");
 
-    const id = randomUUID().replace(/-/g, "");
+    printId = randomUUID().replace(/-/g, "");
+    const id = printId;
     await setProposalPrintData(id, { formData: data, imageDataUrls });
 
     // Use internal HTTP endpoint for server-side Playwright rendering.
@@ -75,6 +77,11 @@ export async function POST(request: Request) {
       message: "PDF успішно створено!",
     });
   } catch (e) {
+    if (printId) {
+      await deleteProposalPrintData(printId).catch(() => {
+        /* ignore */
+      });
+    }
     const err = e instanceof Error ? e : new Error(String(e));
     return NextResponse.json(
       { success: false, error: err.message + "\n" + (err.stack ?? "") },

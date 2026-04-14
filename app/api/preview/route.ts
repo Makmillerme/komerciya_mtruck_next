@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { financingQrToDataUrl } from "@/lib/financing-qr";
 import { renderProposalHtml } from "@/lib/render-proposal-html";
 
 export async function POST(request: Request) {
@@ -27,10 +28,13 @@ export async function POST(request: Request) {
       ? `${request.headers.get("x-forwarded-proto") ?? "https"}://${request.headers.get("x-forwarded-host")}`
       : new URL(request.url).origin;
 
+    const financingQrSrc = await financingQrToDataUrl(data.financing_block_qr_url);
+
     const html = renderProposalHtml({
       formData: data,
       imageDataUrls,
       baseUrl: origin + "/",
+      financingQrSrc,
     });
 
     return NextResponse.json({ html });

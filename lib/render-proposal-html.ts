@@ -98,18 +98,17 @@ export function renderProposalHtml({
             <div>${supplierAddrHtml}</div>
           </div>`
     : "";
-  const supplierGridStyle = d.supplier_show_address
-    ? "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.75rem;align-items:flex-start;justify-items:center"
-    : "display:grid;grid-template-columns:minmax(0,1fr);gap:0.75rem;align-items:flex-start;justify-items:center";
-  const supplierContactBlock = d.supplier_show_contact
-    ? `<div class="mt-3 pt-3 border-t border-[#e5e7eb] text-[11px] text-center w-full" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #e5e7eb;font-size:11px;text-align:center;width:100%">
-          <p style="color:#1D304E;font-weight:600;margin-bottom:0.5rem">Контактна інформація</p>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:0.375rem;color:#333">
+  const supplierColCount =
+    1 +
+    (d.supplier_show_address ? 1 : 0) +
+    (d.supplier_show_contact ? 1 : 0);
+  const supplierGridStyle = `display:grid;grid-template-columns:repeat(${supplierColCount},minmax(0,1fr));gap:0.75rem;align-items:center;justify-items:center;width:100%`;
+  const supplierPhoneColumn = d.supplier_show_contact
+    ? `<div style="display:flex;align-items:center;gap:0.5rem;font-size:11px;text-align:center;min-width:0;justify-content:center">
+          <div style="width:24px;height:24px;border-radius:0.5rem;display:flex;align-items:center;justify-content:center;background:#1D304E;color:#fff;flex-shrink:0;font-size:12px;line-height:1" aria-hidden="true">☎</div>
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.125rem;color:#333;text-align:center">
             ${d.supplier_contact_phones
-              .map(
-                (tel) =>
-                  `<div style="display:flex;align-items:center;gap:0.5rem;justify-content:center"><span aria-hidden="true">📞</span><span>${esc(tel)}</span></div>`
-              )
+              .map((tel) => `<span style="word-break:break-word">${esc(tel)}</span>`)
               .join("")}
           </div>
         </div>`
@@ -208,11 +207,11 @@ export function renderProposalHtml({
         <div style="${supplierGridStyle}">
           <div class="flex items-center gap-2 text-[11px] text-center">
             <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0" style="background: #1D304E">🏢</div>
-            <div><strong>${esc(d.supplier_company)}</strong><br>ЄДРПОУ: ${esc(d.supplier_edrpou)}</div>
+            <div><strong>${d.supplier_company?.trim() ? esc(d.supplier_company) : "—"}</strong><br>ЄДРПОУ: ${d.supplier_edrpou?.trim() ? esc(d.supplier_edrpou) : "—"}</div>
           </div>
           ${supplierAddressColumn}
+          ${supplierPhoneColumn}
         </div>
-        ${supplierContactBlock}
       </section>
       <footer class="text-white py-2.5 px-3 text-center text-xs mt-3" style="background: #1D304E">
         <div class="flex justify-center py-1">

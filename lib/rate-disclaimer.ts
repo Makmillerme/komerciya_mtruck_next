@@ -21,12 +21,9 @@ export function getDefaultRateDisclaimerText(date: Date = new Date()): string {
   return getRateDisclaimerLines(formatRateDisclaimerDate(date)).join("\n");
 }
 
-/** Розбити збережений текст на абзаци для КП; порожній рядок → заводські рядки з датою. */
-export function parseRateDisclaimerLines(
-  raw: string | undefined,
-  date: Date = new Date()
-): string[] {
+/** Розбити збережений текст на абзаци для КП; порожній рядок — без тексту в КП (користувач заповнює сам). */
+export function parseRateDisclaimerLines(raw: string | undefined): string[] {
   const t = (raw ?? "").trim();
-  if (!t) return getRateDisclaimerLines(formatRateDisclaimerDate(date));
+  if (!t) return [];
   return t.split(/\n+/).map((l) => l.trim()).filter(Boolean);
 }

@@ -90,6 +90,8 @@ function setInputValue(el: HTMLInputElement | null, value: string) {
 
 export function KMPCalculator() {
   const draftWriteReadyRef = useRef(false);
+  /** Збільшується після кожного `form.reset`, щоб жива панель синхронізувала `watched` (порядок layout-ефектів батько/дитина не гарантує reset до першого `getValues` у дитини). */
+  const [formValuesSyncTick, setFormValuesSyncTick] = useState(0);
   const [lastSavedKmpFingerprint, setLastSavedKmpFingerprint] = useState<
     string | null
   >(null);
@@ -205,6 +207,7 @@ export function KMPCalculator() {
     if (d?.v === 1 && d.values) {
       form.reset({ ...kmpFormEmptyValues(), ...d.values });
       if (d.values.mode) setModeValue(d.values.mode);
+      setFormValuesSyncTick((n) => n + 1);
     }
     if (typeof d?.historyPick === "string") {
       setHistoryPick(d.historyPick);
@@ -237,6 +240,7 @@ export function KMPCalculator() {
   const loadKmpHistoryEntry = (entry: KmpHistoryEntry) => {
     const vals = { ...kmpFormEmptyValues(), ...entry.inputs };
     form.reset(vals);
+    setFormValuesSyncTick((n) => n + 1);
     setModeValue(vals.mode);
     setHistoryPick(entry.sourceProposalHistoryId ?? KMP_PROPOSAL_HISTORY_NONE);
     setLastSavedKmpFingerprint(
@@ -546,6 +550,7 @@ export function KMPCalculator() {
           <div className="min-w-0">
             <KmpCalculatorLivePanel
             form={form}
+            formValuesSyncTick={formValuesSyncTick}
             kmpLast5={kmpLast5}
             loadKmpHistoryEntry={loadKmpHistoryEntry}
             openKmpHistory={openKmpHistory}

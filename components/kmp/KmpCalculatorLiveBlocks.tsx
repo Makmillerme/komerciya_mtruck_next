@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
 import type { UseFormReturn } from "react-hook-form";
 
@@ -123,6 +123,7 @@ function buildLoanFromParsed(d: KmpFormValues) {
  */
 export function KmpCalculatorLivePanel({
   form,
+  formValuesSyncTick,
   kmpLast5,
   loadKmpHistoryEntry,
   openKmpHistory,
@@ -133,6 +134,8 @@ export function KmpCalculatorLivePanel({
   formatUah2,
 }: {
   form: UseFormReturn<KmpFormValues>;
+  /** Збільшується в `KMPCalculator` після `form.reset` (чернетка / завантаження з історії). */
+  formValuesSyncTick: number;
   kmpLast5: readonly KmpHistoryEntry[];
   loadKmpHistoryEntry: (entry: KmpHistoryEntry) => void;
   openKmpHistory: () => void;
@@ -144,7 +147,13 @@ export function KmpCalculatorLivePanel({
 }) {
   const [watched, setWatched] = useState<KmpFormValues>(() => form.getValues());
 
+  /** Після `form.reset` у батьківському `KMPCalculator` (чернетка) порядок layout-ефектів може дати дитині `getValues` до reset; `formValuesSyncTick` оновлюється після reset — повторно синхронізуємо. `watch` у `useEffect` не гарантує подію на reset. */
+  useLayoutEffect(() => {
+    setWatched(form.getValues());
+  }, [form, formValuesSyncTick]);
+
   useEffect(() => {
+    setWatched(form.getValues());
     let timeoutId: number | undefined;
     const sub = form.watch(() => {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
@@ -156,7 +165,7 @@ export function KmpCalculatorLivePanel({
       if (timeoutId !== undefined) clearTimeout(timeoutId);
       sub.unsubscribe();
     };
-  }, [form]);
+  }, [form, formValuesSyncTick]);
 
   const { parsed, loanParsed } = useMemo(() => {
     const r = kmpFormSchema.safeParse(watched);

@@ -202,9 +202,10 @@ export function ProposalTemplate({
                 Інформація про постачальника
               </h3>
               <div
-                className={`grid gap-3 items-start justify-items-center ${
-                  data.supplier_show_address ? "grid-cols-2" : "grid-cols-1"
-                }`}
+                className="grid gap-3 items-center justify-items-center w-full"
+                style={{
+                  gridTemplateColumns: `repeat(${1 + (data.supplier_show_address ? 1 : 0) + (data.supplier_show_contact ? 1 : 0)}, minmax(0, 1fr))`,
+                }}
               >
                 <div className="flex items-center gap-2 text-[11px] text-center">
                   <div
@@ -214,9 +215,9 @@ export function ProposalTemplate({
                     <Building2 className="w-3.5 h-3.5" strokeWidth={2.5} />
                   </div>
                   <div>
-                    <strong>{data.supplier_company}</strong>
+                    <strong>{(data.supplier_company || "").trim() || "—"}</strong>
                     <br />
-                    ЄДРПОУ: {data.supplier_edrpou}
+                    ЄДРПОУ: {(data.supplier_edrpou || "").trim() || "—"}
                   </div>
                 </div>
                 {data.supplier_show_address ? (
@@ -237,22 +238,24 @@ export function ProposalTemplate({
                     </div>
                   </div>
                 ) : null}
-              </div>
-              {data.supplier_show_contact ? (
-                <div className="mt-3 pt-3 border-t border-[#e5e7eb] text-[11px] text-center w-full">
-                  <p className="font-semibold mb-2" style={{ color: NAVY }}>
-                    Контактна інформація
-                  </p>
-                  <div className="flex flex-col items-center gap-1.5 text-[#333]">
-                    {data.supplier_contact_phones.map((tel, i) => (
-                      <div key={i} className="flex items-center gap-2 justify-center">
-                        <Phone className="w-3.5 h-3.5 shrink-0" style={{ color: NAVY }} />
-                        <span>{tel}</span>
-                      </div>
-                    ))}
+                {data.supplier_show_contact ? (
+                  <div className="flex min-w-0 items-center gap-2 text-[11px] text-center">
+                    <div
+                      className="w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-white"
+                      style={{ background: NAVY }}
+                    >
+                      <Phone className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </div>
+                    <div className="flex min-w-0 flex-col items-center justify-center gap-0.5 text-[#333]">
+                      {data.supplier_contact_phones.map((tel, i) => (
+                        <span key={i} className="break-all text-center">
+                          {tel}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </section>
           </div>
           <footer

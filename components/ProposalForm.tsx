@@ -9,7 +9,7 @@ import {
   useSaveProposalHistoryEntry,
 } from "@/hooks/use-proposal-history";
 import { queryKeys } from "@/lib/query-keys";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { HistoryActionBar } from "@/components/history/HistoryActionBar";
@@ -37,6 +37,7 @@ import { proposalSchema, type ProposalFormData } from "@/lib/schema";
 import { cn } from "@/lib/utils";
 import { RotateCcw, X } from "lucide-react";
 import {
+  emptySupplierFormValues,
   getDefaultSupplierFormValues,
   mergeSupplierFormFieldsForHistory,
 } from "@/lib/proposal-supplier-defaults";
@@ -67,6 +68,19 @@ function reorderFiles(arr: File[], from: number, to: number): File[] {
   return copy;
 }
 
+/** Окремий збережений стан полів вартості для шаблону 1 (калькулятор) і шаблону 2 (вручну). */
+type CalculatorCostSnapshot = {
+  currency_value: string;
+  percent_base: string;
+  additional_services: string;
+};
+type ManualCostSnapshot = {
+  currency_non_cash_manual: string;
+  price_with_vat: string;
+  vat: string;
+  price_without_vat: string;
+};
+
 export function ProposalForm() {
   const historyHydratedRef = useRef(false);
   const [photos, setPhotos] = useState<File[]>([]);
@@ -80,6 +94,18 @@ export function ProposalForm() {
   const [previewPhotoUrls, setPreviewPhotoUrls] = useState<string[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const calculatorCostSnapshotRef = useRef<CalculatorCostSnapshot>({
+    currency_value: "",
+    percent_base: "",
+    additional_services: "",
+  });
+  const manualCostSnapshotRef = useRef<ManualCostSnapshot>({
+    currency_non_cash_manual: "",
+    price_with_vat: "",
+    vat: "",
+    price_without_vat: "",
+  });
 
   const { data: historyList = [] } = useProposalHistoryList();
   const saveProposalHistoryMutation = useSaveProposalHistoryEntry();
@@ -122,19 +148,39 @@ export function ProposalForm() {
       gearbox: GEARBOX_OPTIONS[0],
       seats: "",
       technical_state: "",
-      rate_disclaimer_text: getDefaultRateDisclaimerText(),
-      ...getDefaultSupplierFormValues(),
+      rate_disclaimer_text: "",
+      ...emptySupplierFormValues(),
       cost_mode: "calculator",
       currency_value: "",
       percent_base: "",
       additional_services: "",
       currency_non_cash_manual: "",
       currency_code: "usd",
-      show_currency_non_cash: true,
+      show_currency_non_cash: false,
       price_with_vat: "",
       price_without_vat: "",
       vat: "",
     },
+  });
+
+  const syncCostSnapshotsFromForm = () => {
+    const v = form.getValues();
+    calculatorCostSnapshotRef.current = {
+      currency_value: String(v.currency_value ?? ""),
+      percent_base: String(v.percent_base ?? ""),
+      additional_services: String(v.additional_services ?? ""),
+    };
+    manualCostSnapshotRef.current = {
+      currency_non_cash_manual: String(v.currency_non_cash_manual ?? ""),
+      price_with_vat: String(v.price_with_vat ?? ""),
+      vat: String(v.vat ?? ""),
+      price_without_vat: String(v.price_without_vat ?? ""),
+    };
+  };
+
+  const showCurrencyNonCash = useWatch({
+    control: form.control,
+    name: "show_currency_non_cash",
   });
 
   const PHOTO_COUNT_REQUIRED = 8;
@@ -170,7 +216,7 @@ export function ProposalForm() {
     additional_services: "",
     currency_non_cash_manual: "",
     currency_code: "usd",
-    show_currency_non_cash: true,
+    show_currency_non_cash: false,
   };
   const mergeFormData = (entry: ProposalHistoryEntry): ProposalFormData => {
     const rawFd = entry.formData as Partial<ProposalFormData> & {
@@ -183,9 +229,7 @@ export function ProposalForm() {
       ...defaultCostFields,
       ...fd,
       rate_disclaimer_text:
-        typeof fd.rate_disclaimer_text === "string"
-          ? fd.rate_disclaimer_text
-          : getDefaultRateDisclaimerText(),
+        typeof fd.rate_disclaimer_text === "string" ? fd.rate_disclaimer_text : "",
       ...supplierFm,
       wheel_formula: coerceWheelFormula(
         typeof fd.wheel_formula === "string" ? fd.wheel_formula : undefined
@@ -209,6 +253,7 @@ export function ProposalForm() {
     historyHydratedRef.current = true;
     const entry = historyList[0];
     form.reset(mergeFormData(entry));
+    syncCostSnapshotsFromForm();
     if (entry.photoDataUrls?.length) {
       setPhotos(
         entry.photoDataUrls.map((url, i) =>
@@ -224,6 +269,7 @@ export function ProposalForm() {
 
   const loadHistoryEntry = (entry: ProposalHistoryEntry) => {
     form.reset(mergeFormData(entry));
+    syncCostSnapshotsFromForm();
     if (entry.photoDataUrls?.length) {
       setPhotos(
         entry.photoDataUrls.map((url, i) => dataUrlToFile(url, `photo-${i}.jpg`))
@@ -410,6 +456,7 @@ export function ProposalForm() {
                   className="h-9 min-w-9 px-3"
                   onClick={() => {
                     form.reset(mergeFormData(entry));
+                    syncCostSnapshotsFromForm();
                     if (entry.photoDataUrls?.length) {
                       setPhotos(
                         entry.photoDataUrls.map((url, j) =>
@@ -784,7 +831,25 @@ export function ProposalForm() {
                   variant={costMode === "calculator" ? "default" : "outline"}
                   className="size-8 p-0 shrink-0"
                   title="Шаблон 1 — калькулятор"
-                  onClick={() => form.setValue("cost_mode", "calculator")}
+                  onClick={() => {
+                    manualCostSnapshotRef.current = {
+                      currency_non_cash_manual: String(
+                        form.getValues("currency_non_cash_manual") ?? ""
+                      ),
+                      price_with_vat: String(form.getValues("price_with_vat") ?? ""),
+                      vat: String(form.getValues("vat") ?? ""),
+                      price_without_vat: String(form.getValues("price_without_vat") ?? ""),
+                    };
+                    const c = calculatorCostSnapshotRef.current;
+                    form.setValue("currency_value", c.currency_value, {
+                      shouldValidate: false,
+                    });
+                    form.setValue("percent_base", c.percent_base, { shouldValidate: false });
+                    form.setValue("additional_services", c.additional_services, {
+                      shouldValidate: false,
+                    });
+                    form.setValue("cost_mode", "calculator");
+                  }}
                 >
                   1
                 </Button>
@@ -795,24 +860,22 @@ export function ProposalForm() {
                   className="size-8 p-0 shrink-0"
                   title="Шаблон 2 — вручну"
                   onClick={() => {
-                    const cv =
-                      Number.parseFloat(
-                        String(form.getValues("currency_value") ?? "").replace(",", ".")
-                      ) || 0;
-                    const pct =
-                      Number.parseFloat(
-                        String(form.getValues("percent_base") ?? "0").replace(",", ".")
-                      ) || 0;
-                    const addSvc =
-                      Number.parseFloat(
-                        String(form.getValues("additional_services") ?? "").replace(",", ".")
-                      ) || 0;
-                    const rounded = Math.round(cv * (1 + pct / 100) + addSvc);
-                    if (rounded > 0) {
-                      form.setValue("currency_non_cash_manual", String(rounded), {
-                        shouldValidate: false,
-                      });
-                    }
+                    calculatorCostSnapshotRef.current = {
+                      currency_value: String(form.getValues("currency_value") ?? ""),
+                      percent_base: String(form.getValues("percent_base") ?? ""),
+                      additional_services: String(
+                        form.getValues("additional_services") ?? ""
+                      ),
+                    };
+                    const m = manualCostSnapshotRef.current;
+                    form.setValue("currency_non_cash_manual", m.currency_non_cash_manual, {
+                      shouldValidate: false,
+                    });
+                    form.setValue("price_with_vat", m.price_with_vat, { shouldValidate: false });
+                    form.setValue("vat", m.vat, { shouldValidate: false });
+                    form.setValue("price_without_vat", m.price_without_vat, {
+                      shouldValidate: false,
+                    });
                     form.setValue("cost_mode", "manual");
                   }}
                 >
@@ -866,46 +929,36 @@ export function ProposalForm() {
                   />
                 </>
               ) : (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="currency_non_cash_manual"
-                    render={({ field }) => (
-                      <FormItem className="min-w-0 shrink-0">
-                        <FormLabel className="whitespace-nowrap">Валютна безготівкова ({currencyLabel})</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            inputMode="numeric"
-                            placeholder="0"
-                            className="w-28"
-                            {...field}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              if (raw === "") {
-                                field.onChange("");
-                                return;
-                              }
-                              const n = Number.parseInt(raw, 10);
-                              field.onChange(Number.isNaN(n) ? "" : String(Math.max(0, n)));
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormItem className="min-w-0 shrink-0 opacity-60 pointer-events-none">
-                    <FormLabel className="whitespace-nowrap">Відсоткова база (%)</FormLabel>
-                    <Input readOnly value="" placeholder="—" className="w-24 bg-muted" aria-hidden />
-                  </FormItem>
-                  <FormItem className="min-w-0 shrink-0 opacity-60 pointer-events-none">
-                    <FormLabel className="whitespace-nowrap">Дод. послуги ({currencyLabel})</FormLabel>
-                    <Input readOnly value="" placeholder="—" className="w-28 bg-muted" aria-hidden />
-                  </FormItem>
-                </>
+                <FormField
+                  control={form.control}
+                  name="currency_non_cash_manual"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0 shrink-0">
+                      <FormLabel className="whitespace-nowrap">Валютна безготівкова ({currencyLabel})</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          inputMode="numeric"
+                          placeholder="0"
+                          className="w-28"
+                          {...field}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              field.onChange("");
+                              return;
+                            }
+                            const n = Number.parseInt(raw, 10);
+                            field.onChange(Number.isNaN(n) ? "" : String(Math.max(0, n)));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
               <FormField
                 control={form.control}
@@ -1026,6 +1079,7 @@ export function ProposalForm() {
           </CardContent>
         </Card>
 
+        {showCurrencyNonCash ? (
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium tracking-tight">
@@ -1069,6 +1123,7 @@ export function ProposalForm() {
             />
           </CardContent>
         </Card>
+        ) : null}
 
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-2">
@@ -1095,12 +1150,12 @@ export function ProposalForm() {
               <RotateCcw className="size-4" />
             </Button>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-3">
             <FormField
               control={form.control}
               name="supplier_company"
               render={({ field }) => (
-                <FormItem className="sm:col-span-2">
+                <FormItem className="sm:col-span-3">
                   <FormLabel>Найменування (юридичне)</FormLabel>
                   <FormControl>
                     <Input {...field} />
@@ -1113,7 +1168,7 @@ export function ProposalForm() {
               control={form.control}
               name="supplier_edrpou"
               render={({ field }) => (
-                <FormItem className="sm:max-w-xs">
+                <FormItem>
                   <FormLabel>ЄДРПОУ</FormLabel>
                   <FormControl>
                     <Input {...field} />
@@ -1122,7 +1177,7 @@ export function ProposalForm() {
                 </FormItem>
               )}
             />
-            <p className="text-xs text-muted-foreground sm:col-span-2">
+            <p className="text-xs text-muted-foreground sm:col-span-3">
               Адреса в КП: перший рядок — індекс, область і місто (лише заповнені); другий —
               вулиця та будинок. Усі поля нижче опційні; якщо всі порожні — блок адреси в КП не
               показується.
@@ -1170,7 +1225,7 @@ export function ProposalForm() {
               control={form.control}
               name="supplier_street"
               render={({ field }) => (
-                <FormItem className="sm:col-span-2">
+                <FormItem className="sm:col-span-3">
                   <FormLabel>Вулиця, будинок, офіс</FormLabel>
                   <FormControl>
                     <Input placeholder="напр. вул. Січових Стрільців, буд. 11" {...field} />
@@ -1179,8 +1234,8 @@ export function ProposalForm() {
                 </FormItem>
               )}
             />
-            <div className="sm:col-span-2 border-t border-border pt-4 mt-1 space-y-3">
-              <p className="text-sm font-medium">Контактна інформація (у КП)</p>
+            <div className="sm:col-span-3 space-y-3 border-t border-border pt-4 mt-1">
+              <p className="text-sm font-medium">Контакти постачальника (у КП)</p>
               <p className="text-xs text-muted-foreground">
                 До двох телефонів. Якщо обидва порожні — блок контактів у комерційній не відображається.
               </p>

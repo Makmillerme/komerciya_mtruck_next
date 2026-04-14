@@ -51,7 +51,7 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
   if (seats) seats = addUnitIfNeeded(seats, "місця");
 
   const currencyLabel = data.currency_code === "eur" ? "EUR" : "USD";
-  const showCurrencyNonCash = data.show_currency_non_cash ?? true;
+  const showCurrencyNonCash = data.show_currency_non_cash ?? false;
   const costMode = data.cost_mode ?? "calculator";
 
   let priceWithVat = data.price_with_vat ?? "";

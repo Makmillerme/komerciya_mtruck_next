@@ -109,6 +109,31 @@ export function hasStructuredSupplierAddressKeys(fd: object): boolean {
   );
 }
 
+/** Порожній постачальник для старту форми (користувач заповнює сам). */
+export function emptySupplierFormValues(): Pick<
+  ProposalFormData,
+  | "supplier_company"
+  | "supplier_edrpou"
+  | "supplier_postal_code"
+  | "supplier_region"
+  | "supplier_city"
+  | "supplier_street"
+  | "supplier_phone_primary"
+  | "supplier_phone_secondary"
+> {
+  return {
+    supplier_company: "",
+    supplier_edrpou: "",
+    supplier_postal_code: "",
+    supplier_region: "",
+    supplier_city: "",
+    supplier_street: "",
+    supplier_phone_primary: "",
+    supplier_phone_secondary: "",
+  };
+}
+
+/** Заводський приклад для кнопки «Скинути» в картці постачальника. */
 export function getDefaultSupplierFormValues(): Pick<
   ProposalFormData,
   | "supplier_company"
@@ -154,15 +179,10 @@ export function resolveSupplierForProposal(data: SupplierResolveInput): {
   supplier_show_address: boolean;
   supplier_show_contact: boolean;
 } {
-  const defs = getDefaultSupplierFormValues();
   const company =
-    typeof data.supplier_company === "string" && data.supplier_company.trim() !== ""
-      ? data.supplier_company
-      : defs.supplier_company;
+    typeof data.supplier_company === "string" ? data.supplier_company.trim() : "";
   const edrpou =
-    typeof data.supplier_edrpou === "string" && data.supplier_edrpou.trim() !== ""
-      ? data.supplier_edrpou
-      : defs.supplier_edrpou;
+    typeof data.supplier_edrpou === "string" ? data.supplier_edrpou.trim() : "";
 
   const raw = data as Record<string, unknown>;
   const legacyAddress =
@@ -233,7 +253,6 @@ export function mergeSupplierFormFieldsForHistory(
   | "supplier_phone_primary"
   | "supplier_phone_secondary"
 > {
-  const defs = getDefaultSupplierFormValues();
   const raw = fd as Record<string, unknown>;
   const hasStructured = hasStructuredSupplierAddressKeys(fd);
   const legacy =
@@ -242,13 +261,9 @@ export function mergeSupplierFormFieldsForHistory(
     !hasStructured && legacy ? migrateLegacySupplierAddress(raw.supplier_address as string) : null;
 
   const company =
-    typeof fd.supplier_company === "string" && fd.supplier_company.trim() !== ""
-      ? fd.supplier_company
-      : defs.supplier_company;
+    typeof fd.supplier_company === "string" ? fd.supplier_company.trim() : "";
   const edrpou =
-    typeof fd.supplier_edrpou === "string" && fd.supplier_edrpou.trim() !== ""
-      ? fd.supplier_edrpou
-      : defs.supplier_edrpou;
+    typeof fd.supplier_edrpou === "string" ? fd.supplier_edrpou.trim() : "";
 
   const part = (k: keyof SupplierAddressParts): string => {
     const v = raw[k];

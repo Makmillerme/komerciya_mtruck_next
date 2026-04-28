@@ -32,7 +32,6 @@ export default async function ProposalPrintPage({
     data.formData.financing_block_qr_url
   );
   const imageUrls = [...data.imageDataUrls];
-  while (imageUrls.length < 8) imageUrls.push("");
 
   return (
     <div

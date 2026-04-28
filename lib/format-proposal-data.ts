@@ -41,6 +41,7 @@ export interface FormattedProposalData {
 
 export function formatProposalData(data: Partial<ProposalFormData>): FormattedProposalData {
   let mileage = data.mileage ?? "";
+  if (mileage.trim() === "-") mileage = "";
   if (mileage) {
     mileage = addUnitIfNeeded(mileage, "км");
     mileage = formatNumberWithSpaces(mileage.replace(" км", "")) + " км";
@@ -57,24 +58,11 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
 
   const currencyLabel = data.currency_code === "eur" ? "EUR" : "USD";
   const showCurrencyNonCash = data.show_currency_non_cash ?? false;
-  const costMode = data.cost_mode ?? "calculator";
 
   let priceWithVat = data.price_with_vat ?? "";
   if (priceWithVat) {
-    if (costMode === "calculator") {
-      const n = Number.parseFloat(priceWithVat.replace(/\s/g, "").replace(",", "."));
-      if (!Number.isNaN(n)) {
-        const intPart = Math.round(n);
-        const formatted = intPart.toLocaleString("uk-UA").replace(/\s/g, " ");
-        priceWithVat = addUnitIfNeeded(`${formatted},00`, "грн");
-      } else {
-        priceWithVat = formatNumberWithSpaces(priceWithVat);
-        priceWithVat = addUnitIfNeeded(priceWithVat, "грн");
-      }
-    } else {
-      priceWithVat = formatNumberWithSpaces(priceWithVat);
-      priceWithVat = addUnitIfNeeded(priceWithVat, "грн");
-    }
+    priceWithVat = formatNumberWithSpaces(priceWithVat);
+    priceWithVat = addUnitIfNeeded(priceWithVat, "грн");
   }
 
   let priceWithoutVat = data.price_without_vat ?? "";
@@ -88,6 +76,8 @@ export function formatProposalData(data: Partial<ProposalFormData>): FormattedPr
     vat = formatNumberWithSpaces(vat);
     vat = addUnitIfNeeded(vat, "грн");
   }
+
+  const costMode = data.cost_mode ?? "calculator";
 
   const supplier = resolveSupplierForProposal(data);
   const finDef = getDefaultFinancingFormValues();

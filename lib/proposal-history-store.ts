@@ -6,10 +6,10 @@ import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
 import type { ProposalHistoryEntry } from "./proposal-history";
+import { MAX_PROPOSAL_PHOTOS } from "./proposal-photo-layout";
 
 const FILE = path.join(process.cwd(), "data", "proposal-history.json");
 const MAX_ENTRIES = 50;
-const MAX_PHOTOS = 8;
 
 export async function readProposalHistoryFile(): Promise<ProposalHistoryEntry[]> {
   try {
@@ -37,7 +37,7 @@ export async function appendProposalHistoryEntry(
   payload: ProposalHistoryAppendPayload
 ): Promise<ProposalHistoryEntry> {
   const list = await readProposalHistoryFile();
-  const photoDataUrls = (payload.photoDataUrls ?? []).slice(0, MAX_PHOTOS);
+  const photoDataUrls = (payload.photoDataUrls ?? []).slice(0, MAX_PROPOSAL_PHOTOS);
   const entry: ProposalHistoryEntry = {
     file: payload.file,
     formData: payload.formData,

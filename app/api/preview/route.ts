@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { financingQrToDataUrl } from "@/lib/financing-qr";
+import { MAX_PROPOSAL_PHOTOS } from "@/lib/proposal-photo-layout";
 import { renderProposalHtml } from "@/lib/render-proposal-html";
 
 export async function POST(request: Request) {
@@ -12,16 +13,13 @@ export async function POST(request: Request) {
 
     const files = formData.getAll("photos") as File[];
     const imageDataUrls: string[] = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < Math.min(files.length, MAX_PROPOSAL_PHOTOS); i++) {
       const f = files[i];
-      if (f?.type?.startsWith("image/")) {
-        const buf = Buffer.from(await f.arrayBuffer());
-        const base64 = buf.toString("base64");
-        const mime = f.type || "image/jpeg";
-        imageDataUrls.push(`data:${mime};base64,${base64}`);
-      } else {
-        imageDataUrls.push("");
-      }
+      if (!f?.type?.startsWith("image/")) continue;
+      const buf = Buffer.from(await f.arrayBuffer());
+      const base64 = buf.toString("base64");
+      const mime = f.type || "image/jpeg";
+      imageDataUrls.push(`data:${mime};base64,${base64}`);
     }
 
     const origin = request.headers.get("x-forwarded-host")

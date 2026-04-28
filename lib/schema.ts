@@ -1,38 +1,25 @@
 import { z } from "zod";
-import {
-  ENGINE_TYPE_OPTIONS,
-  GEARBOX_OPTIONS,
-  WHEEL_FORMULA_OPTIONS,
-} from "./proposal-select-options";
 
-const requiredString = z.string().min(1, "Обов'язкове поле");
-
-const wheelFormulaZ = z.enum(
-  WHEEL_FORMULA_OPTIONS as unknown as [string, ...string[]]
-);
-const engineTypeZ = z.enum(
-  ENGINE_TYPE_OPTIONS as unknown as [string, ...string[]]
-);
-const gearboxZ = z.enum(
-  GEARBOX_OPTIONS as unknown as [string, ...string[]]
-);
-
+/**
+ * Поля форми КП без жорсткої обов'язковості — генерація PDF дозволена з частковими даними.
+ * Селекти в UI обмежують значення; у Zod приймаємо довільний рядок.
+ */
 export const proposalSchema = z
   .object({
-  model: requiredString,
-  vin: requiredString,
-  year: requiredString,
-  mileage: requiredString,
-  color: requiredString,
-  country: requiredString,
-  body_type: requiredString,
-  wheel_formula: wheelFormulaZ,
-  engine_type: engineTypeZ,
-  engine_volume: requiredString,
-  power: requiredString,
-  gearbox: gearboxZ,
-  seats: requiredString,
-  technical_state: requiredString,
+  model: z.string(),
+  vin: z.string(),
+  year: z.string(),
+  mileage: z.string(),
+  color: z.string(),
+  country: z.string(),
+  body_type: z.string(),
+  wheel_formula: z.string(),
+  engine_type: z.string(),
+  engine_volume: z.string(),
+  power: z.string(),
+  gearbox: z.string(),
+  seats: z.string(),
+  technical_state: z.string(),
   /** Примітка під блоком вартості в КП; порожньо — заводський текст з rate-disclaimer */
   rate_disclaimer_text: z.string(),
   /** Блок «Фінансування / консультація» на стор. 2 КП. */
@@ -60,8 +47,8 @@ export const proposalSchema = z
       },
       { message: "Некоректне посилання для QR" }
     ),
-  supplier_company: requiredString,
-  supplier_edrpou: requiredString,
+  supplier_company: z.string(),
+  supplier_edrpou: z.string(),
   /** Адреса постачальника: частини опційні; порожні не потрапляють у КП. */
   supplier_postal_code: z.string(),
   supplier_region: z.string(),
@@ -84,29 +71,6 @@ export const proposalSchema = z
   price_without_vat: z.string(),
   vat: z.string(),
 })
-  .superRefine((data, ctx) => {
-    if (data.cost_mode !== "manual") return;
-    const n = Math.round(
-      Number.parseFloat(String(data.currency_non_cash_manual ?? "").replace(",", ".")) || 0
-    );
-    if (n <= 0) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Вкажіть валютну безготівкову вартість (ціле число)",
-        path: ["currency_non_cash_manual"],
-      });
-    }
-    const req = "Обов'язкове поле";
-    if (!data.price_with_vat?.trim()) {
-      ctx.addIssue({ code: "custom", message: req, path: ["price_with_vat"] });
-    }
-    if (!data.vat?.trim()) {
-      ctx.addIssue({ code: "custom", message: req, path: ["vat"] });
-    }
-    if (!data.price_without_vat?.trim()) {
-      ctx.addIssue({ code: "custom", message: req, path: ["price_without_vat"] });
-    }
-  })
   .superRefine((data, ctx) => {
     const maxPhone = 32;
     if ((data.supplier_phone_primary?.length ?? 0) > maxPhone) {

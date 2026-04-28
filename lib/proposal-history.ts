@@ -1,4 +1,5 @@
 import type { ProposalFormData } from "@/lib/schema";
+import { MAX_PROPOSAL_PHOTOS } from "@/lib/proposal-photo-layout";
 
 const HISTORY_API = "/api/proposal-history";
 
@@ -7,11 +8,9 @@ export interface ProposalHistoryEntry {
   file: string;
   date: string;
   formData: ProposalFormData;
-  /** Base64 data URLs для відновлення фото при заповненні з історії (до 8 шт.) */
+  /** Base64 data URLs для відновлення фото при заповненні з історії */
   photoDataUrls?: string[];
 }
-
-const MAX_PHOTOS = 8;
 
 export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -47,7 +46,7 @@ export async function saveProposalHistoryEntry(
   entry: Omit<ProposalHistoryEntry, "id" | "date"> & { photoDataUrls?: string[] }
 ): Promise<ProposalHistoryEntry | null> {
   try {
-    const photoDataUrls = (entry.photoDataUrls ?? []).slice(0, MAX_PHOTOS);
+    const photoDataUrls = (entry.photoDataUrls ?? []).slice(0, MAX_PROPOSAL_PHOTOS);
     const r = await fetch(HISTORY_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -21,9 +21,15 @@ export const TECH_SPEC_KEYS: [keyof FormattedProposalData, string][] = [
 ];
 
 export function getMainSpecItems(data: FormattedProposalData): [string, string][] {
-  return MAIN_SPEC_KEYS.map(([key, label]) => [label, String(data[key] ?? "")]);
+  return MAIN_SPEC_KEYS.map(([key, label]) => {
+    const v = String(data[key] ?? "").trim();
+    return [label, v || "—"];
+  });
 }
 
 export function getTechSpecItems(data: FormattedProposalData): [string, string][] {
-  return TECH_SPEC_KEYS.map(([key, label]) => [label, String(data[key] ?? "")]);
+  return TECH_SPEC_KEYS.map(([key, label]) => {
+    const v = String(data[key] ?? "").trim();
+    return [label, v || "—"];
+  });
 }

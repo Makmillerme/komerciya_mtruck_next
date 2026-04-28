@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MAX_PROPOSAL_PHOTOS } from "@/lib/proposal-photo-layout";
 import { proposalSchema, type ProposalFormData } from "@/lib/schema";
 import { cn } from "@/lib/utils";
 import { RotateCcw, X } from "lucide-react";
@@ -199,14 +200,15 @@ export function ProposalForm() {
     return `/api/qr?url=${encodeURIComponent(t)}`;
   }, [financingQrUrlWatch]);
 
-  const PHOTO_COUNT_REQUIRED = 8;
-
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    const next = [...photos, ...files].slice(0, PHOTO_COUNT_REQUIRED);
-    setPhotos(next);
-    if (next.length > PHOTO_COUNT_REQUIRED) setError(`Максимум ${PHOTO_COUNT_REQUIRED} фото`);
-    else setError(null);
+    const merged = [...photos, ...files];
+    if (merged.length > MAX_PROPOSAL_PHOTOS) {
+      setError(`Максимум ${MAX_PROPOSAL_PHOTOS} фото`);
+    } else {
+      setError(null);
+    }
+    setPhotos(merged.slice(0, MAX_PROPOSAL_PHOTOS));
   };
 
   const removePhoto = (i: number) => {
@@ -352,7 +354,7 @@ export function ProposalForm() {
       if (json.success) {
         const photoDataUrls =
           photos.length > 0
-            ? await Promise.all(photos.slice(0, 8).map(fileToDataUrl))
+            ? await Promise.all(photos.slice(0, MAX_PROPOSAL_PHOTOS).map(fileToDataUrl))
             : undefined;
         await saveProposalHistoryMutation.mutateAsync({
           file: json.file,
@@ -387,18 +389,14 @@ export function ProposalForm() {
     setPreviewLoading(true);
     setPreviewError(null);
     if (photos.length === 0) {
-      const empty: string[] = [];
-      while (empty.length < 8) empty.push("");
-      setPreviewPhotoUrls(empty);
+      setPreviewPhotoUrls([]);
       setPreviewLoading(false);
       return;
     }
-    Promise.all(photos.slice(0, 8).map(fileToDataUrl))
+    Promise.all(photos.slice(0, MAX_PROPOSAL_PHOTOS).map(fileToDataUrl))
       .then((urls) => {
         if (cancelled) return;
-        const padded = [...urls];
-        while (padded.length < 8) padded.push("");
-        setPreviewPhotoUrls(padded);
+        setPreviewPhotoUrls(urls);
       })
       .catch((err) => {
         if (!cancelled) setPreviewError(err instanceof Error ? err.message : "Помилка");
@@ -779,7 +777,7 @@ export function ProposalForm() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium tracking-tight">
-              Фотографії (8 шт.)
+              Фотографії (до {MAX_PROPOSAL_PHOTOS} шт.)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -789,12 +787,12 @@ export function ProposalForm() {
                 <span
                   className={cn(
                     "text-xs",
-                    photos.length === PHOTO_COUNT_REQUIRED
+                    photos.length > 0
                       ? "text-green-600 dark:text-green-400"
                       : "text-muted-foreground"
                   )}
                 >
-                  Додано {photos.length} з {PHOTO_COUNT_REQUIRED}
+                  Додано {photos.length} / {MAX_PROPOSAL_PHOTOS}
                 </span>
               </div>
               <div
@@ -813,12 +811,11 @@ export function ProposalForm() {
                 />
                 <p className="text-sm">Натисніть для завантаження</p>
               </div>
-              {photos.length > 0 && photos.length !== PHOTO_COUNT_REQUIRED && (
-                <p className="text-xs text-destructive">
-                  Потрібно додати рівно {PHOTO_COUNT_REQUIRED} фото для генерації PDF.
-                </p>
-              )}
-              <div className="grid grid-cols-4 gap-2 mt-4">
+              <p className="text-xs text-muted-foreground">
+                PDF можна згенерувати з будь-якою кількістю фото (0–{MAX_PROPOSAL_PHOTOS}).
+                Порядок змінюється перетягуванням мініатюр.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-4">
                 {photos.map((f, i) => (
                   <div
                     key={i}
@@ -1423,14 +1420,7 @@ export function ProposalForm() {
           >
             {previewLoading ? "Завантаження…" : "Попередній перегляд"}
           </Button>
-          <Button
-            type="submit"
-            disabled={
-              !form.formState.isValid ||
-              loading ||
-              photos.length !== PHOTO_COUNT_REQUIRED
-            }
-          >
+          <Button type="submit" disabled={loading}>
             {loading ? "Генеруємо PDF..." : "Згенерувати PDF"}
           </Button>
           {success && (

@@ -5,6 +5,7 @@ import {
   setProposalPrintData,
   deleteProposalPrintData,
 } from "@/lib/proposal-print-store";
+import { MAX_PROPOSAL_PHOTOS } from "@/lib/proposal-photo-layout";
 
 export async function POST(request: Request) {
   let printId: string | undefined;
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
 
     const files = formData.getAll("photos") as File[];
     const imageDataUrls: string[] = [];
-    for (let i = 0; i < Math.min(files.length, 8); i++) {
+    for (let i = 0; i < Math.min(files.length, MAX_PROPOSAL_PHOTOS); i++) {
       const f = files[i];
       if (!f?.name) continue;
       const buf = Buffer.from(await f.arrayBuffer());
@@ -25,7 +26,6 @@ export async function POST(request: Request) {
       const mime = f.type?.startsWith("image/") ? f.type : "image/jpeg";
       imageDataUrls.push(`data:${mime};base64,${base64}`);
     }
-    while (imageDataUrls.length < 8) imageDataUrls.push("");
 
     printId = randomUUID().replace(/-/g, "");
     const id = printId;

@@ -1,4 +1,8 @@
 import { formatProposalData } from "./format-proposal-data";
+import {
+  PROPOSAL_PHOTOS_PAGE1,
+  splitProposalPhotosForPages,
+} from "./proposal-photo-layout";
 import { PROPOSAL_BRAND_NAVY_HEX as NAVY } from "./proposal-template-constants";
 
 import type { ProposalFormData } from "./schema";
@@ -38,8 +42,8 @@ export function renderProposalHtml({
   financingQrSrc = null,
 }: RenderProposalOptions): string {
   const d = formatProposalData(formData);
-  const urls = [...imageDataUrls];
-  while (urls.length < 8) urls.push("");
+  const { page1: photoUrlsP1, page2: photoUrlsP2 } =
+    splitProposalPhotosForPages(imageDataUrls);
 
   const img = (path: string) => (baseUrl ? `${baseUrl.replace(/\/$/, "")}/${path}` : path);
 
@@ -80,15 +84,23 @@ export function renderProposalHtml({
     .join("");
 
   const photoBox = (content: string) =>
-    `<div style="aspect-ratio:4/3;border-radius:0.75rem;border:1px solid #e5e7eb;overflow:hidden;background:#f8f9fa;display:flex;align-items:center;justify-content:center">${content}</div>`;
-  const photos1_4 = urls
-    .slice(0, 4)
-    .map((url, i) => photoBox(photoCell(url, i + 1)))
-    .join("");
-  const photos5_8 = urls
-    .slice(4, 8)
-    .map((url, i) => photoBox(photoCell(url, i + 5)))
-    .join("");
+    `<div style="aspect-ratio:4/3;border-radius:0.75rem;border:1px solid #e5e7eb;overflow:hidden;background:#f8f9fa;display:flex;align-items:center;justify-content:center;min-width:0">${content}</div>`;
+  const photoGridStyle =
+    "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.625rem;max-width:100%";
+  const photoGridHtml = (urls: string[], startIdx: number) =>
+    urls.map((url, i) => photoBox(photoCell(url, startIdx + i))).join("");
+  const photoHeadingHtml = `<h3 class="flex items-center gap-2.5 text-[${NAVY}] text-xs font-semibold mb-2">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: ${NAVY}; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">📷</span>
+        Фотографії автомобіля
+      </h3>`;
+  const photosSectionP1 =
+    photoUrlsP1.length > 0
+      ? `<section class="my-3">${photoHeadingHtml}<div class="grid grid-cols-2 gap-2.5 max-w-full" style="${photoGridStyle}">${photoGridHtml(photoUrlsP1, 1)}</div></section>`
+      : "";
+  const photosSectionP2 =
+    photoUrlsP2.length > 0
+      ? `<section class="my-3"><div class="grid grid-cols-2 gap-2.5 max-w-full" style="${photoGridStyle}">${photoGridHtml(photoUrlsP2, PROPOSAL_PHOTOS_PAGE1 + 1)}</div></section>`
+      : "";
 
   const showNc = d.show_currency_non_cash && d.currency_non_cash;
   const gridCols = showNc ? 4 : 3;
@@ -161,22 +173,10 @@ export function renderProposalHtml({
       </div>
       ${technicalStateFullRow}
     </section>
-    <section class="my-3">
-        <h3 class="flex items-center gap-2.5 text-[${NAVY}] text-xs font-semibold mb-2">
-        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: ${NAVY}; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">📷</span>
-        Фотографії автомобіля
-      </h3>
-      <div class="grid grid-cols-2 gap-2.5 max-w-full">${photos1_4}</div>
-    </section>
+    ${photosSectionP1}
   </div>
     <div class="mt-8 pt-6 border-t border-[#e5e7eb] relative" style="page-break-before: always">
-      <section class="my-3">
-        <h3 class="flex items-center gap-2.5 text-[${NAVY}] text-xs font-semibold mb-2">
-        <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg text-white shrink-0" style="background: ${NAVY}; box-shadow: 0 1px 2px rgba(0,0,0,0.08)">📷</span>
-          Фотографії автомобіля
-        </h3>
-        <div class="grid grid-cols-2 gap-2.5 max-w-full">${photos5_8}</div>
-      </section>
+      ${photosSectionP2}
       <section class="text-white rounded-xl py-5 px-5 my-3 text-center" style="background: ${NAVY}; min-height: 120px">
         <h3 class="flex items-center justify-center gap-2 text-[13px] font-semibold mb-3">${walletIconSvg} Вартість та умови</h3>
         <div class="grid gap-3 mt-2" style="display:grid;grid-template-columns:repeat(${gridCols},minmax(0,1fr));gap:0.75rem;margin-top:0.5rem">

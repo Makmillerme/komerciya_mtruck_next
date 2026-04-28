@@ -9,6 +9,11 @@ import {
   Wallet,
 } from "lucide-react";
 import type { FormattedProposalData } from "@/lib/format-proposal-data";
+import {
+  PROPOSAL_PHOTOS_PAGE1,
+  splitProposalPhotosForPages,
+} from "@/lib/proposal-photo-layout";
+import { cn } from "@/lib/utils";
 
 import { getMainSpecItems, getTechSpecItems } from "@/lib/proposal-specs";
 import { PROPOSAL_BRAND_NAVY_HEX } from "@/lib/proposal-template-constants";
@@ -17,7 +22,7 @@ import { FinancingQrImage } from "@/components/proposal/FinancingQrImage";
 
 export interface ProposalTemplateProps {
   data: FormattedProposalData;
-  /** 8 фото: data URL або порожній рядок */
+  /** До 24 фото: data URL або порожній рядок (порожні відфільтровуються у шаблоні) */
   imageUrls: string[];
   /** Базовий URL для статичних зображень (logo, qr). Для PDF — шлях до temp dir */
   baseUrl?: string;
@@ -56,6 +61,9 @@ export function ProposalTemplate({
 }: ProposalTemplateProps) {
   /** baseUrl="" → відносні шляхи (PDF). baseUrl="/" → абсолютні (веб). */
   const img = (path: string) => (baseUrl ? `${baseUrl.replace(/\/$/, "")}/${path}` : path);
+
+  const { page1: photosPage1, page2: photosPage2 } =
+    splitProposalPhotosForPages(imageUrls);
 
   const pageContent = (
     <>
@@ -117,7 +125,7 @@ export function ProposalTemplate({
                 </div>
               </div>
             </section>
-            <PhotoGallery imageUrls={imageUrls.slice(0, 4)} startIndex={1} />
+            <PhotoGallery imageUrls={photosPage1} startIndex={1} columns={2} />
           </div>
         </div>
       </DocumentPageWithLabel>
@@ -129,7 +137,12 @@ export function ProposalTemplate({
           style={{ fontFamily: "Inter, system-ui, sans-serif" }}
         >
           <div className="flex-1 overflow-hidden px-3 pt-3 pb-2">
-            <PhotoGallery imageUrls={imageUrls.slice(4, 8)} startIndex={5} showTitle={false} />
+            <PhotoGallery
+              imageUrls={photosPage2}
+              startIndex={PROPOSAL_PHOTOS_PAGE1 + 1}
+              showTitle={false}
+              columns={2}
+            />
             <section
               className="text-white rounded-xl py-5 px-5 my-3 text-center"
               style={{ background: NAVY, minHeight: 120 }}
@@ -311,11 +324,14 @@ function PhotoGallery({
   imageUrls,
   startIndex,
   showTitle = true,
+  columns = 2,
 }: {
   imageUrls: string[];
   startIndex: number;
   showTitle?: boolean;
+  columns?: 2 | 3;
 }) {
+  if (imageUrls.length === 0) return null;
   return (
     <section className={showTitle ? "my-3" : "mt-0 mb-3"}>
       {showTitle && (
@@ -326,11 +342,16 @@ function PhotoGallery({
           Фотографії автомобіля
         </h3>
       )}
-      <div className="grid grid-cols-2 gap-2.5 max-w-full">
+      <div
+        className={cn(
+          "grid gap-2.5 max-w-full",
+          columns === 3 ? "grid-cols-3" : "grid-cols-2"
+        )}
+      >
         {imageUrls.map((url, i) => (
           <div
-            key={i}
-            className="aspect-[4/3] rounded-xl border border-[#e5e7eb] overflow-hidden bg-[#f8f9fa] flex items-center justify-center"
+            key={`p-${startIndex + i}`}
+            className="aspect-[4/3] rounded-xl border border-[#e5e7eb] overflow-hidden bg-[#f8f9fa] flex items-center justify-center min-w-0"
           >
             {url ? (
               <img
